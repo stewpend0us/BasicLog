@@ -44,13 +44,30 @@ namespace BasicLog
 	// class prorotypes
 	class DataEntry;
 	class ContainerEntry;
+	class DataStructure;
 
 	// variant type for all Entry types
-	using Entries = std::variant<DataEntry, ContainerEntry>;
+	using Entries = std::variant<DataEntry, ContainerEntry, DataStructure>;
 
 	// is this thing a real piece of basic data?
 	template <class T>
 	concept is_Fundamental = std::is_fundamental<T>::value;
+
+	class DataStructure
+	{
+		std::string name;
+		std::string description;
+		std::string type;
+
+	public:
+		size_t ptr_size;
+		char *ptr;
+		DataStructure(const std::string_view name, const std::string_view description, auto *item, std::is_convertible<std::type_info> auto... TI)
+			: name(name), description(description), ptr_size(sizeof(*item)), ptr((char *)item)
+		{
+			type(get_type_name(typeid(*item)));
+		}
+	};
 
 	// represents a single p
 	class DataEntry
