@@ -9,15 +9,15 @@ int main(void)
 
 	struct stuff
 	{
-		double a;
-		int b;
-		bool c;
+		bool c[4];
 		float d;
+		int b[2];
+		double a;
 	};
 
 	struct stuff stuff
 	{
-		1.0, 2, true, 3.14
+		true, true, true, true, 1.0, 2, 3, 3.14
 	};
 
 	double a;
@@ -26,6 +26,7 @@ int main(void)
 	bool d;
 	bool *e = &d;
 	Entry L("test", "just a test log",
+			// Entry("bad", "pointer type", &e), // doesn't compile
 			Entry("a", "data a", &a),
 			Entry("b", "data b", &b),
 			Entry("container", "of things",
@@ -33,7 +34,15 @@ int main(void)
 				  Entry("d", "data d", &d),
 				  Entry("nested", "more things",
 						Entry("a", "a again", &a))),
-			Entry("e", "also d", e));
-	//		  DataStructure("stuff", "a struct", &stuff, typeid(double), typeid(int), typeid(bool),typeid(float)));
+			Entry("e", "also d", e),
+			Entry("stuff", "a struct", &stuff,
+				  Entry("s1", "element1", Represents<bool>(4)),
+				  Entry("s2", "element2", Represents<float>()),
+				  Entry("s3", "entry3", Represents<int>(2)),
+				  // Entry("bad","pointer type", Represents<float*>()), // doesn't run
+				  Entry("s4", "entry4", Represents<double>())),
+			// Entry("bad", "a struct again", &stuff), // doesn't compile
+			// Entry("bad", "of nothing"), // doesn't compile
+			Entry("last", "last one", &a));
 	std::cout << L.get_header() << "\n";
 }
