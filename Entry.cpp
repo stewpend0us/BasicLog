@@ -23,10 +23,10 @@ namespace BasicLog
 		size_t total_size(void) const { return size * count; }
 	};
 
-	template <class T>
-	static type_information Represents(size_t count = 1)
+	template <is_Fundamental T, size_t Count = 1>
+	requires(Count > 0) constexpr static type_information Represents()
 	{
-		return {typeid(T), sizeof(T), count};
+		return {typeid(T), sizeof(T), Count};
 	}
 
 	static std::string json_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view before_type, const std::string &type, const std::string_view after_type)

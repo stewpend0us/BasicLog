@@ -36,9 +36,9 @@ int main(void)
 						Entry("a", "a again", &a))),
 			Entry("e", "also d", e),
 			Entry("stuff", "a struct", &stuff,
-				  Entry("s1", "element1", Represents<bool>(4)),
+				  Entry("s1", "element1", Represents<bool,4>()),
 				  Entry("s2", "element2", Represents<float>()),
-				  Entry("s3", "entry3", Represents<int>(2)),
+				  Entry("s3", "entry3", Represents<int,2>()),
 				  // Entry("bad","pointer type", Represents<float*>()), // doesn't run
 				  Entry("s4", "entry4", Represents<double>())),
 			// Entry("bad", "a struct again", &stuff), // doesn't compile
