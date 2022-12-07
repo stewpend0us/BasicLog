@@ -112,25 +112,6 @@ namespace BasicLog
 		{
 		}
 
-		// General Container
-		Entry(const std::string_view name, const std::string_view description, size_t count, std::convertible_to<const Child> auto const... child_entries)
-			: Entry(name, description)
-		{
-			std::string type("");
-			bool first = true;
-			for (const auto &child : {child_entries...})
-			{
-				if (first)
-				{
-					type = child.header;
-					first = false;
-					continue;
-				}
-				type += "," NL + child.header;
-			}
-			header = json_array_entry(name, description, count, type);
-		}
-
 	public:
 		std::string get_header(void) const
 		{
