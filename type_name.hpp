@@ -7,7 +7,7 @@
 template <typename T>
 struct assert_false : std::false_type
 {
-	// might as well use this space for some static asserts while we're at it
+	// might as well use this scope for some static asserts while we're at it
 	static_assert(sizeof(long double) == 128 / 8, "assumed long double size");
 	static_assert(sizeof(double) == 64 / 8, "assumed double size");
 	static_assert(sizeof(float) == 32 / 8, "assumed float size");
@@ -38,7 +38,7 @@ struct type_name
 	X(uint32_t, uint32)      \
 	X(uint64_t, uint64)
 
-// for each type,name in the list define a specialization
+// for each type,name in the list define a specialization that looks like:
 #define X(type, name)                                    \
 	template <>                                          \
 	struct type_name<type>                               \

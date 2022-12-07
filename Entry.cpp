@@ -9,26 +9,46 @@
 
 #define NL "\n"
 
+// TODO
+/*
+class Log
+{
+
+	struct Entry
+	{
+		//std::string_view name;
+		//std::string_view description;
+		std::string header;
+		char * ptr;
+		size_t size;
+	}
+
+	struct StructEntryChild
+	{
+		//std::string_view name;
+		//std::string_view description;
+		std::string header;
+		size_t total_size;
+	}
+
+	Log(...Entry)
+	Append(Entry)
+
+	static constexpr Entry BasicEntry(...)
+	static constexpr Entry ContainerEntry(...Entry)
+	static constexpr Entry StructEntry(...StructEntryChild)
+
+	template <typename T, size_t N = 1>
+	requires(N>1)
+	static constexpr StructEntryChild ChildEntry(...)
+
+}
+*/
 namespace BasicLog
 {
 	// is this thing a real piece of basic data?
 	template <class T>
 	concept is_Fundamental = std::is_fundamental_v<T>;
-
-
-	struct type_information
-	{
-		const std::string_view name;
-		const size_t size;
-		const size_t count;
-		size_t total_size(void) const { return size * count; }
-	};
-
-	template <is_Fundamental T, size_t Count = 1>
-	requires(Count > 0) constexpr static type_information Represents(void)
-	{
-		return {type_name_v<T>, sizeof(T), Count};
-	}
 
 	static std::string json_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view before_type, const std::string_view type, const std::string_view after_type)
 	{
@@ -49,6 +69,21 @@ namespace BasicLog
 	{
 		return json_entry(name, description, count, "[" NL, type, "]");
 	}
+
+	class Child
+	{
+	public:
+		std::string_view name;
+		std::string_view description;
+		size_t size;
+		std::string header;
+
+		template <is_Fundamental T, size_t N = 1>
+		requires(N > 0) static constexpr Child Entry(const std::string_view name, const std::string_view description)
+		{
+			return {name, description, N * sizeof(T), json_string_entry(name, description, N, type_name_v<T>)};
+		}
+	};
 
 	struct DataEntry
 	{
@@ -78,7 +113,7 @@ namespace BasicLog
 		}
 
 		// General Container
-		Entry(const std::string_view name, const std::string_view description, size_t count, std::convertible_to<const Entry> auto const... child_entries)
+		Entry(const std::string_view name, const std::string_view description, size_t count, std::convertible_to<const Child> auto const... child_entries)
 			: Entry(name, description)
 		{
 			std::string type("");
@@ -119,29 +154,49 @@ namespace BasicLog
 
 		// Container
 		Entry(const std::string_view name, const std::string_view description, std::convertible_to<const Entry> auto const... child_entries)
-			: Entry(name, description, 1, child_entries...)
+			: Entry(name, description)
 		{
+			std::string type("");
+			bool first = true;
+			for (const auto &child : {child_entries...})
+			{
+				if (first)
+				{
+					type = child.header;
+					first = false;
+					continue;
+				}
+				type += "," NL + child.header;
+			}
+			header = json_array_entry(name, description, 1, type);
 		}
 
 		// Structure
-		Entry(const std::string_view name, const std::string_view description, auto const *entry, std::convertible_to<const Entry> auto const... child_entries)
+		Entry(const std::string_view name, const std::string_view description, auto const *entry, std::convertible_to<const Child> auto const... child_entries)
 			: Entry(name, description, entry, 1, child_entries...)
 		{
 		}
 
 		// Structure Array
-		Entry(const std::string_view name, const std::string_view description, auto const *entry, size_t count, std::convertible_to<const Entry> auto const... child_entries)
-			: Entry(name, description, count, child_entries...)
+		Entry(const std::string_view name, const std::string_view description, auto const *entry, size_t count, std::convertible_to<const Child> auto const... child_entries)
+			: Entry(name, description)
 		{
 			size_t total_size = 0;
+			std::string type("");
+			bool first = true;
 			for (const auto &child : {child_entries...})
 			{
-				if (child.data.ptr != nullptr)
-					throw child.error("contains data but shouldn't");
-				if (child.data.size == 0)
-					throw child.error("represents zero size");
-				total_size += child.data.size;
+				total_size += child.size;
+				if (first)
+				{
+					type = child.header;
+					first = false;
+					continue;
+				}
+				type += "," NL + child.header;
 			}
+			header = json_array_entry(name, description, count, type);
+
 			if (sizeof(*entry) != total_size)
 				throw error("size mismatch. data size is " + std::to_string(sizeof(*entry)) + " total children size is " + std::to_string(total_size) +
 							"\n           likely due to struct padding or the struct definition is out of sync with the log definition");
@@ -149,13 +204,6 @@ namespace BasicLog
 			data.ptr = (char *)entry;
 			data.size = sizeof(*entry) * count;
 		}
-
-		// Structure field (and Structure field array)
-		Entry(const std::string_view name, const std::string_view description, const type_information info)
-			: Entry(name, description)
-		{
-			header = json_string_entry(name, description, info.count, info.name);
-			data.size = info.total_size();
-		}
 	};
+
 }
