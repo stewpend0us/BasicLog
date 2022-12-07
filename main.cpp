@@ -25,6 +25,7 @@ int main(void)
 	int8_t c;
 	bool d;
 	bool *e = &d;
+	char f;
 	Entry L("test", "just a test log",
 			// Entry("bad", "pointer type", &e), // doesn't compile
 			Entry("a", "data a", &a),
@@ -39,10 +40,12 @@ int main(void)
 				  Entry("s1", "element1", Represents<bool,4>()),
 				  Entry("s2", "element2", Represents<float>()),
 				  Entry("s3", "entry3", Represents<int,2>()),
-				  // Entry("bad","pointer type", Represents<float*>()), // doesn't run
+				  //Entry("bad","bad",&b), // doesn't run
+				  //Entry("bad","pointer type", Represents<float*>()), // doesn't compile
 				  Entry("s4", "entry4", Represents<double>())),
 			// Entry("bad", "a struct again", &stuff), // doesn't compile
 			// Entry("bad", "of nothing"), // doesn't compile
+			Entry("f", "data f", &f),
 			Entry("last", "last one", &a));
-	std::cout << L.get_header() << "\n";
+	std::cout << L.get_header() << '\n';
 }

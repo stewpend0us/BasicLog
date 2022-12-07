@@ -3,9 +3,9 @@
 #include <vector>
 #include <concepts>
 #include <stdexcept>
-#include <typeinfo>
 
 #include <iostream>
+#include "type_name.hpp"
 
 #define NL "\n"
 
@@ -13,38 +13,39 @@ namespace BasicLog
 {
 	// is this thing a real piece of basic data?
 	template <class T>
-	concept is_Fundamental = std::is_fundamental<T>::value;
+	concept is_Fundamental = std::is_fundamental_v<T>;
+
 
 	struct type_information
 	{
-		const std::type_info &id;
+		const std::string_view name;
 		const size_t size;
 		const size_t count;
 		size_t total_size(void) const { return size * count; }
 	};
 
 	template <is_Fundamental T, size_t Count = 1>
-	requires(Count > 0) constexpr static type_information Represents()
+	requires(Count > 0) constexpr static type_information Represents(void)
 	{
-		return {typeid(T), sizeof(T), Count};
+		return {type_name_v<T>, sizeof(T), Count};
 	}
 
-	static std::string json_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view before_type, const std::string &type, const std::string_view after_type)
+	static std::string json_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view before_type, const std::string_view type, const std::string_view after_type)
 	{
 		std::string result("{");
 		result += "\"name\":\"" + std::string(name) + "\",";
 		result += "\"desc\":\"" + std::string(description) + "\",";
 		result += "\"size\":" + std::to_string(count) + ",";
-		result += "\"type\":" + std::string(before_type) + type + std::string(after_type) + "}";
+		result += "\"type\":" + std::string(before_type) + std::string(type) + std::string(after_type) + "}";
 		return result;
 	}
 
-	static std::string json_string_entry(const std::string_view name, const std::string_view description, size_t count, const std::string &type)
+	static std::string json_string_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view type)
 	{
 		return json_entry(name, description, count, "\"", type, "\"");
 	}
 
-	static std::string json_array_entry(const std::string_view name, const std::string_view description, size_t count, const std::string &type)
+	static std::string json_array_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view type)
 	{
 		return json_entry(name, description, count, "[" NL, type, "]");
 	}
@@ -69,21 +70,6 @@ namespace BasicLog
 		std::runtime_error error(const std::string &info) const
 		{
 			return std::runtime_error("name:" + std::string(name) + ", description:" + std::string(description) + "..." + info);
-		}
-
-		std::string typeid_to_string(const std::type_info &id) const
-		{
-			if (id == typeid(double))
-				return "double";
-			if (id == typeid(float))
-				return "float";
-			if (id == typeid(int))
-				return "int";
-			if (id == typeid(bool))
-				return "bool";
-			if (id == typeid(int8_t))
-				return "int8";
-			throw error(std::string("unexpected type_info.name \"") + id.name() + "\"");
 		}
 
 		Entry(const std::string_view name, const std::string_view description)
@@ -125,7 +111,8 @@ namespace BasicLog
 		Entry(const std::string_view name, const std::string_view description, is_Fundamental auto const *entry, size_t count = 1)
 			: Entry(name, description)
 		{
-			header = json_string_entry(name, description, count, typeid_to_string(typeid(*entry)));
+			// remove the * and const from the entry type
+			header = json_string_entry(name, description, count, type_name_v<std::remove_const_t<std::remove_pointer_t<decltype(entry)>>>);
 			data.ptr = (char *)entry;
 			data.size = sizeof(*entry) * count;
 		}
@@ -167,7 +154,7 @@ namespace BasicLog
 		Entry(const std::string_view name, const std::string_view description, const type_information info)
 			: Entry(name, description)
 		{
-			header = json_string_entry(name, description, info.count, typeid_to_string(info.id));
+			header = json_string_entry(name, description, info.count, info.name);
 			data.size = info.total_size();
 		}
 	};
