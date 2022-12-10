@@ -1,4 +1,5 @@
 #pragma once
+#include <type_traits>
 #include "ConstexprString.hpp"
 #include "type_name.hpp"
 #include "unsigned_to_string.hpp"
@@ -7,16 +8,22 @@
 
 namespace BasicLog
 {
+	template <class T>
+	concept is_Fundamental = std::is_fundamental_v<T>;
 
-	constexpr std::string_view name = "name";
-	constexpr std::string_view desc = "desc";
-	constexpr std::string_view size = "size";
-	constexpr std::string_view type = "type";
+	constexpr std::string_view op = "{";
+	constexpr std::string_view c = ",";
+	constexpr std::string_view q = "\"";
+	constexpr std::string_view name = "\"name\":";
+	constexpr std::string_view desc = "\"desc\":";
+	constexpr std::string_view size = "\"size\":";
+	constexpr std::string_view type = "\"type\":";
+	constexpr std::string_view cl = "}";
 
-	template <std::string_view const &Name, std::string_view const &Description, typename Type, size_t Size>
+	template <std::string_view const &Name, std::string_view const &Description, is_Fundamental Type, size_t Size>
 	constexpr std::string_view Header()
 	{
-		return join_v<name, Name, desc, Description, size, unsigned_to_string_v<Size>, type, type_name_v<Type>>;
+		return join_v<op, name, q, Name, q, c, desc, q, Description, q, c, size, unsigned_to_string_v<Size>, c, type, q, type_name_v<Type>, q, cl>;
 	}
 
 	//	class Header

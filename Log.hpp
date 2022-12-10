@@ -1,12 +1,11 @@
 #include <string_view>
-#include <type_traits>
 #include "ConstexprString.hpp"
 #include "Header.hpp"
 
 namespace BasicLog
 {
-	template <class T>
-	concept is_Fundamental = std::is_fundamental_v<T>;
+	//	template <class T>
+	//	concept is_Fundamental = std::is_fundamental_v<T>;
 
 	class Log
 	{
@@ -41,10 +40,10 @@ namespace BasicLog
 		// Append(Entry)
 
 		template <std::string_view const &Name, std::string_view const &Description>
-		static constexpr FundamentalEntry Entry(is_Fundamental auto const * const entry)
+		static constexpr FundamentalEntry Entry(is_Fundamental auto const *const entry)
 		{
 			constexpr size_t size = sizeof(decltype(*entry));
-			return {Header<Name, Description, std::remove_const_t<std::remove_pointer_t<decltype(entry)>>, size>(), (char *)entry, 1};
+			return {Header<Name, Description, std::remove_const_t<std::remove_pointer_t<decltype(entry)>>, size / 8>(), (char *)entry, size};
 		}
 	};
 }

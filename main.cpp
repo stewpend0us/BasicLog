@@ -20,7 +20,7 @@ int main(void)
 		true, true, true, true, 1.0, 2, 3, 3.14
 	};
 
-	double a = 42.0;
+	double a = -42.0;
 	int b;
 	int8_t c;
 	bool d;
@@ -28,10 +28,11 @@ int main(void)
 	char f;
 	static constexpr std::string_view aa = "aa";
 	static constexpr std::string_view bb = "bb";
-	auto E = Log::Entry<aa,bb>(&a);
+	auto E = Log::Entry<aa, bb>(&a);
 	std::cout << E.header << '\n';
+	std::cout << E.ptr[0] << E.ptr[1] << E.ptr[2] << E.ptr[4] << E.ptr[5] << E.ptr[6] << E.ptr[7] << '\n';
 
-	//Entry L("test", "just a test log",
+	// Entry L("test", "just a test log",
 	//		// Entry("bad", "pointer type", &e), // doesn't compile
 	//		Entry("a", "data a", &a),
 	//		Entry("b", "data b", &b),
@@ -45,12 +46,12 @@ int main(void)
 	//			  Child::Entry<bool,4>("s1", "element1"),
 	//			  Child::Entry<float>("s2", "element2"),
 	//			  Child::Entry<int,2>("s3", "entry3"),
-////				Entry("bad","bad",&b), // doesn't compile
-////				Child::Entry<bool>("extra", "too much"), // doesn't run
+	////				Entry("bad","bad",&b), // doesn't compile
+	////				Child::Entry<bool>("extra", "too much"), // doesn't run
 	//			  Child::Entry<double>("s4", "entry4")),
 	//		// Entry("bad", "a struct again", &stuff), // doesn't compile
 	//		// Entry("bad", "of nothing"), // doesn't compile
 	//		Entry("f", "data f", &f),
 	//		Entry("last", "last one", &a));
-	//std::cout << L.get_header() << '\n';
+	// std::cout << L.get_header() << '\n';
 }
