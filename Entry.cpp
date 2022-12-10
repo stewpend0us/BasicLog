@@ -9,66 +9,12 @@
 
 #define NL "\n"
 
-// TODO
-/*
-class Log
-{
-
-	struct Entry
-	{
-		//std::string_view name;
-		//std::string_view description;
-		std::string header;
-		char * ptr;
-		size_t size;
-	}
-
-	struct StructEntryChild
-	{
-		//std::string_view name;
-		//std::string_view description;
-		std::string header;
-		size_t total_size;
-	}
-
-	Log(...Entry)
-	Append(Entry)
-
-	static constexpr Entry BasicEntry(...)
-	static constexpr Entry ContainerEntry(...Entry)
-	static constexpr Entry StructEntry(...StructEntryChild)
-
-	template <typename T, size_t N = 1>
-	requires(N>1)
-	static constexpr StructEntryChild ChildEntry(...)
-
-}
-*/
 namespace BasicLog
 {
 	// is this thing a real piece of basic data?
 	template <class T>
 	concept is_Fundamental = std::is_fundamental_v<T>;
 
-	static std::string json_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view before_type, const std::string_view type, const std::string_view after_type)
-	{
-		std::string result("{");
-		result += "\"name\":\"" + std::string(name) + "\",";
-		result += "\"desc\":\"" + std::string(description) + "\",";
-		result += "\"size\":" + std::to_string(count) + ",";
-		result += "\"type\":" + std::string(before_type) + std::string(type) + std::string(after_type) + "}";
-		return result;
-	}
-
-	static std::string json_string_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view type)
-	{
-		return json_entry(name, description, count, "\"", type, "\"");
-	}
-
-	static std::string json_array_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view type)
-	{
-		return json_entry(name, description, count, "[" NL, type, "]");
-	}
 
 	class Child
 	{

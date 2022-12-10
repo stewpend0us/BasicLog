@@ -3,24 +3,27 @@
 #include <cstdint>
 #include <type_traits>
 
-// falsy placeholder so we can static_assert in the fallback for type_name
-template <typename T>
-struct assert_false : std::false_type
+namespace detail
 {
-	// might as well use this scope for some static asserts while we're at it
-	static_assert(sizeof(long double) == 128 / 8, "assumed long double size");
-	static_assert(sizeof(double) == 64 / 8, "assumed double size");
-	static_assert(sizeof(float) == 32 / 8, "assumed float size");
-	static_assert(sizeof(bool) == 8 / 8, "assumed bool size");
-	static_assert(sizeof(char) == 8 / 8, "assumed char size");
-};
+	// falsy placeholder so we can static_assert in the fallback for type_name
+	template <typename T>
+	struct assert_false : std::false_type
+	{
+		// might as well use this scope for some static asserts while we're at it
+		static_assert(sizeof(long double) == 128 / 8, "assumed long double size");
+		static_assert(sizeof(double) == 64 / 8, "assumed double size");
+		static_assert(sizeof(float) == 32 / 8, "assumed float size");
+		static_assert(sizeof(bool) == 8 / 8, "assumed bool size");
+		static_assert(sizeof(char) == 8 / 8, "assumed char size");
+	};
 
-// fallback to a compiler error if there is no specialization for T
-template <typename T>
-struct type_name
-{
-	static_assert(assert_false<T>::value, "type not supported");
-};
+	// fallback to a compiler error if there is no specialization for T
+	template <typename T>
+	struct type_name
+	{
+		static_assert(assert_false<T>::value, "type not supported");
+		static constexpr std::string_view value = "error";
+	};
 
 // list of c++ name, my name
 #define X_LIST_TYPES         \
@@ -45,11 +48,12 @@ struct type_name
 	{                                                    \
 		static constexpr std::string_view value = #name; \
 	};
-X_LIST_TYPES
+	X_LIST_TYPES
 #undef X
 
 #undef X_LIST_TYPES
 
-// a helper so we don't have to "call" ::value all the time
-template<typename T>
-constexpr std::string_view type_name_v = type_name<T>::value;
+}
+
+template <typename T>
+constexpr std::string_view type_name_v = detail::type_name<T>::value;
