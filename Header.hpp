@@ -8,45 +8,45 @@
 
 namespace BasicLog
 {
-	template <class T>
-	concept is_Fundamental = std::is_fundamental_v<T>;
-
-	constexpr std::string_view op = "{";
-	constexpr std::string_view c = ",";
-	constexpr std::string_view q = "\"";
-	constexpr std::string_view name = "\"name\":";
-	constexpr std::string_view desc = "\"desc\":";
-	constexpr std::string_view size = "\"size\":";
-	constexpr std::string_view type = "\"type\":";
-	constexpr std::string_view cl = "}";
-
-	template <std::string_view const &Name, std::string_view const &Description, is_Fundamental Type, size_t Size>
-	constexpr std::string_view Header()
+	namespace detail
 	{
-		return join_v<op, name, q, Name, q, c, desc, q, Description, q, c, size, unsigned_to_string_v<Size>, c, type, q, type_name_v<Type>, q, cl>;
+		constexpr std::string_view sl = "{";
+		constexpr std::string_view sr = "}\n";
+		constexpr std::string_view bl = "[\n";
+		constexpr std::string_view br = "]";
+		constexpr std::string_view c = ",";
+		constexpr std::string_view q = "\"";
+		constexpr std::string_view name = "\"name\":";
+		constexpr std::string_view desc = "\"desc\":";
+		constexpr std::string_view size = "\"size\":";
+		constexpr std::string_view type = "\"type\":";
+
+		template <std::string_view const &Name, std::string_view const &Description, std::string_view const &Before, std::string_view const &Type, std::string_view const &After, std::string_view const &Size>
+		struct Header
+		{
+			constexpr static std::string_view value = join_v<sl, name, q, Name, q, c, desc, q, Description, q, c, size, Size, c, type, Before, Type, After, sr>;
+		};
+
+		template <std::string_view const &Before, std::string_view const &After>
+		std::string Header_dynamic(std::string_view const Name, std::string_view const Description, std::string_view const Type, std::string_view const Size)
+		{
+			return std::string(join_v<sl, name, q>).append(Name).append(join_v<q, c, desc, q>).append(Description).append(join_v<q, c, size>).append(Size).append(join_v<c, type, Before>).append(Type).append(join_v<After, sr>);
+		};
 	}
 
-	//	class Header
-	//	{
-	//
-	//		static std::string json_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view before_type, const std::string_view type, const std::string_view after_type)
-	//		{
-	//			std::string result("{");
-	//			result += "\"name\":\"" + std::string(name) + "\",";
-	//			result += "\"desc\":\"" + std::string(description) + "\",";
-	//			result += "\"size\":" + std::to_string(count) + ",";
-	//			result += "\"type\":" + std::string(before_type) + std::string(type) + std::string(after_type) + "}";
-	//			return result;
-	//		}
-	//
-	//		static std::string json_string_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view type)
-	//		{
-	//			return json_entry(name, description, count, "\"", type, "\"");
-	//		}
-	//
-	//		static std::string json_array_entry(const std::string_view name, const std::string_view description, size_t count, const std::string_view type)
-	//		{
-	//			return json_entry(name, description, count, "[" NL, type, "]");
-	//		}
-	//	};
+	template <std::string_view const &Name, std::string_view const &Description, std::string_view const &Type, std::string_view const &Size>
+	constexpr std::string_view Header_fundamental_v = detail::Header<Name, Description, detail::q, Type, detail::q, Size>::value;
+
+	template <std::string_view const &Name, std::string_view const &Description, std::string_view const &Type, std::string_view const &Size>
+	constexpr std::string_view Header_complex_v = detail::Header<Name, Description, detail::bl, Type, detail::br, Size>::value;
+
+	std::string Header_fundamental(std::string_view const Name, std::string_view const Description, std::string_view const Type, std::string_view const Size)
+	{
+		return detail::Header_dynamic<detail::q, detail::q>(Name, Description, Type, Size);
+	}
+
+	std::string Header_complex(std::string_view const Name, std::string_view const Description, std::string_view const Type, std::string_view const Size)
+	{
+		return detail::Header_dynamic<detail::bl, detail::br>(Name, Description, Type, Size);
+	}
 }

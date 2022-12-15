@@ -32,25 +32,3 @@ namespace detail
 
 template <std::string_view const &...Strs>
 static constexpr auto join_v = detail::join<Strs...>::value;
-
-template <size_t N>
-struct ConstexprString
-{
-	constexpr ConstexprString(const char (&str)[N])
-	{
-		std::copy_n(str, N, value);
-	}
-	char value[N];
-};
-
-
-//template<std::string_view const & Str>
-//struct constexpr_string
-//{
-//	static constexpr auto impl() noexcept
-//	{
-//
-//	}
-//	static constexpr auto arr = impl();
-//	static constexpr std::string_view value{arr.data(),arr.size()-1};
-//}
