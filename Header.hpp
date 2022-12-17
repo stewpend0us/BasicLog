@@ -1,33 +1,33 @@
 #pragma once
-#include "chararr.hpp"
+#include <string_view>
 
 namespace BasicLog
 {
 	namespace detail
 	{
 
-		static constexpr char q = '"';
-		static constexpr char c = ',';
-		static constexpr char br = ']';
-		static constexpr char bl[] = "[\n";
-		static constexpr char name[] = "\"name\":";
-		static constexpr char desc[] = "\"desc\":";
-		static constexpr char size[] = "\"size\":";
-		static constexpr char type[] = "\"type\":";
+		static constexpr std::string_view q = "\"";
+		static constexpr std::string_view c = ",";
+		static constexpr std::string_view qc = "\",";
+		static constexpr std::string_view br = "]";
+		static constexpr std::string_view bl = "[\n";
+		static constexpr std::string_view name = "\"name\":";
+		static constexpr std::string_view desc = "\"desc\":";
+		static constexpr std::string_view size = "\"size\":";
+		static constexpr std::string_view type = "\"type\":";
 
-		constexpr auto Header_general(const auto &Name, const auto &Description, const auto &Before, const auto &Type, const auto &After, const auto &Size)
+		auto Header_general(const std::string_view Name, const std::string_view Description, const std::string_view Before, const std::string_view Type, const std::string_view After, const std::string_view Size)
 		{
-			return concat("{", name, q, Name, q, c, desc, q, Description, q, c, size, Size, c, type, Before, Type, After, "}\n");
+			return std::string("{").append(name).append(q).append(Name).append(qc).append(desc).append(q).append(Description).append(qc).append(size).append(Size).append(c).append(type).append(Before).append(Type).append(After).append("}\n");
 		}
-
 	}
 
-	constexpr auto Header(const auto &Name, const auto &Description, const auto &Type, const auto &Size)
+	auto Header(const std::string_view Name, const std::string_view Description, const std::string_view Type, const auto Size)
 	{
 		return detail::Header_general(Name, Description, detail::q, Type, detail::q, Size);
 	}
 
-	constexpr auto Header_nested(const auto &Name, const auto &Description, const auto &Type, const auto &Size)
+	auto Header_nested(const std::string_view Name, const std::string_view Description, const std::string_view Type, const auto Size)
 	{
 		return detail::Header_general(Name, Description, detail::bl, Type, detail::br, Size);
 	}

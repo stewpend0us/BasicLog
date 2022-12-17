@@ -70,8 +70,8 @@ static constexpr auto concat(auto &...args)
 	return buff;
 }
 
-//#include "unsigned_to_string.hpp"
-//auto get_digit(auto left, auto right)
+// #include "unsigned_to_string.hpp"
+// auto get_digit(auto left, auto right)
 //{
 //	if (left > 0)
 //	{
@@ -83,8 +83,8 @@ static constexpr auto concat(auto &...args)
 //		return buff;
 //	}
 //	return std::array<decltype(left), 1>{right};
-//}
-//auto test_to_string(auto num)
+// }
+// auto test_to_string(auto num)
 //{
 //	size_t i = 0;
 //	while (num > 0)
@@ -98,4 +98,4 @@ static constexpr auto concat(auto &...args)
 //	//const auto tc = get_digit(num / 10, num % 10);
 //	// return tc;
 //	return 1337;
-//}
+// }

@@ -1,4 +1,4 @@
-//#include <Log.hpp>
+// #include <Log.hpp>
 #include <iostream>
 #include "Log.hpp"
 #include "chararr.hpp"
@@ -27,29 +27,18 @@ int main(void)
 	// bool d;
 	// bool *e = &d;
 	// char f;
-	static constexpr const char c1[] = "abc";
-	static constexpr std::array<char,4> c3 = {'1','2','3','4'};
-	static constexpr char q = '"';
-	static constexpr auto l = concat("{", "name", q, c1, "defg", c3);
-	//std::cout << std::string_view(l.data(), l.size());
-	//std::cout << '\n';
-	//std::cout << l.size();
-	//std::cout << '\n';
-	//std::cout << l.data() << tl;
-	//std::cout << '\n';
 
-	//auto test = test_to_string(123456);
-	constexpr auto s = Header_nested(c1, c1, l, unsigned_to_string<12354234>::value);
-	std::cout << std::string_view(s.data(),s.size());
-	//std::cout << test << '\n';
+	auto s = Header_nested("lol", "haha", "asdf", unsigned_to_string<12354234>::value);
+	std::cout << std::string_view(s.data(), s.size());
+	// std::cout << test << '\n';
 
-	static auto E1 = Log::Entry<1>(c1,c3, &b);
-	//  static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
-	//  static auto E3 = Log::Entry<aa, _static__, 5>(&a[0]);
+	// static auto E1 = Log::Entry("a","b", &b,3);
+	//   static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
+	//   static auto E3 = Log::Entry<aa, _static__, 5>(&a[0]);
 	////static auto E4 = Log::Entry(aa,"dynamic",&stuff);
-	std::cout << E1.header;
-	// std::cout << E2.header;
-	// std::cout << E3.header;
+	// std::cout << E1.header;
+	//  std::cout << E2.header;
+	//  std::cout << E3.header;
 
 	// Entry L("test", "just a test log",
 	//		// Entry("bad", "pointer type", &e), // doesn't compile

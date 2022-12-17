@@ -1,7 +1,7 @@
 #include <string_view>
 #include <string>
 
-//#include "ConstexprString.hpp"
+// #include "ConstexprString.hpp"
 #include "Header.hpp"
 #include "unsigned_to_string.hpp"
 #include "type_name.hpp"
@@ -38,7 +38,7 @@ namespace BasicLog
 		{
 		};
 
-		struct StructMember: EntryBase
+		struct StructMember : EntryBase
 		{
 			size_t const size;
 		};
@@ -46,35 +46,26 @@ namespace BasicLog
 		// Log(...Entry)
 		// Append(Entry)
 
-		static auto error(std::string_view const name, std::string_view const description, std::string_view const msg)
+		static auto error(const std::string_view name, const std::string_view description, const std::string_view msg)
 		{
 			return std::runtime_error(std::string("name:").append(name).append(", description:").append(description).append("...").append(msg));
 		}
 
-		template <size_t Count>
-		static FundamentalEntry Entry(const auto &Name, const auto &Description, is_Fundamental auto const *const data) requires(Count > 0)
+		static FundamentalEntry Entry(const auto &Name, const auto &Description, is_Fundamental auto const *const data, size_t Count)
 		{
-			using Type = std::remove_const_t<std::remove_reference_t<decltype(*data)>>;
-			constexpr auto Size = sizeof(Type);
-			auto header = Header(Name, Description, type_name<Type>::value, unsigned_to_string<Count>::value);
-			return {std::string(header.data(), header.size()), (char const *const)data, Count * Size};
+			using Type = std::remove_cvref_t<decltype(*data)>;
+			auto Size = sizeof(Type);
+			auto header = Header(Name, Description, type_name<Type>::value, std::to_string(Count));
+			return {header, (char const *const)data, Count * Size};
 		}
 
 		template <size_t const Count>
 		static FundamentalEntry Entry(const auto Name, const auto Description, is_Fundamental auto const (&arr)[Count])
 		{
-			return Entry<Count>(Name,Description,&arr[0]); // force the array to a pointer
+			return Entry(Name, Description, &arr[0], Count); // force the array to a pointer
 		}
 
-		static FundamentalEntry Entry(const auto Name, const auto Description, is_Fundamental auto const *const data, const size_t Count)
-		{
-			using Type = std::remove_const_t<std::remove_reference_t<decltype(*data)>>;
-			constexpr size_t Size = sizeof(Type);
-			std::string header = Header(Name, Description, type_name<Type>::value, std::to_string(Count));
-			return {header, (char const *const)data, Count * Size};
-		}
-
-		static StructEntry Entry(const auto Name, const auto Description, is_Class auto const * const data, size_t Count, std::convertible_to<const StructMember> auto const... child_entries)
+		static StructEntry Entry(const std::string_view Name, const std::string_view Description, is_Class auto const *const data, size_t Count, std::convertible_to<const StructMember> auto const... child_entries)
 		{
 			constexpr size_t Size = sizeof(*data);
 			size_t total_size = 0;
@@ -94,19 +85,18 @@ namespace BasicLog
 			std::string header = Header_nested(Name, Description, type, std::to_string(Count));
 
 			if (Size != total_size)
-				throw error(Name, Description, "size mismatch. data size is " + std::to_string(Size) + " total children size is " + std::to_string(total_size) +
-						"\n           likely due to struct padding or the struct definition is out of sync with the log definition");
+				throw error(Name, Description, "size mismatch. data size is " + std::to_string(Size) + " total children size is " + std::to_string(total_size) + "\n           likely due to struct padding or the struct definition is out of sync with the log definition");
 
-			return { header, (char const *const)data, Count *Size };
+			return {header, (char const *const)data, Count * Size};
 		}
 
-//		template <is_Fundamental T>
-//		static constexpr StructMember Entry()
-//		{
-//			constexpr size_t Size = sizeof(T);
-//			constexpr std::string_view header = Header<>
-//
-//			return {header, Size};
-//		}
+		//		template <is_Fundamental T>
+		//		static constexpr StructMember Entry()
+		//		{
+		//			constexpr size_t Size = sizeof(T);
+		//			constexpr std::string_view header = Header<>
+		//
+		//			return {header, Size};
+		//		}
 	};
 }
