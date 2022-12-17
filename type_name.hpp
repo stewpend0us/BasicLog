@@ -17,13 +17,14 @@ namespace detail
 		static_assert(sizeof(char) == 8 / 8, "assumed char size");
 	};
 
-	// fallback to a compiler error if there is no specialization for T
-	template <typename T>
-	struct type_name
-	{
-		static_assert(assert_false<T>::value, "type not supported");
-		static constexpr std::string_view value = "error";
-	};
+}
+// fallback to a compiler error if there is no specialization for T
+template <typename T>
+struct type_name
+{
+	static_assert(detail::assert_false<T>::value, "type not supported");
+	static constexpr char value[] = "error";
+};
 
 // list of c++ name, my name
 #define X_LIST_TYPES         \
@@ -42,18 +43,13 @@ namespace detail
 	X(uint64_t, uint64)
 
 // for each type,name in the list define a specialization that looks like:
-#define X(type, name)                                    \
-	template <>                                          \
-	struct type_name<type>                               \
-	{                                                    \
-		static constexpr std::string_view value = #name; \
+#define X(type, name)                          \
+	template <>                                \
+	struct type_name<type>                     \
+	{                                          \
+		static constexpr char value[] = #name; \
 	};
-	X_LIST_TYPES
+X_LIST_TYPES
 #undef X
 
 #undef X_LIST_TYPES
-
-}
-
-template <typename T>
-constexpr std::string_view type_name_v = detail::type_name<T>::value;

@@ -1,8 +1,10 @@
 #include <string_view>
 #include <string>
 
-#include "ConstexprString.hpp"
+//#include "ConstexprString.hpp"
 #include "Header.hpp"
+#include "unsigned_to_string.hpp"
+#include "type_name.hpp"
 
 namespace BasicLog
 {
@@ -49,30 +51,30 @@ namespace BasicLog
 			return std::runtime_error(std::string("name:").append(name).append(", description:").append(description).append("...").append(msg));
 		}
 
-		template <std::string_view const &Name, std::string_view const &Description, size_t const Count = 1>
-		static FundamentalEntry Entry(is_Fundamental auto const *const data) requires(Count > 0)
+		template <size_t Count>
+		static FundamentalEntry Entry(const auto &Name, const auto &Description, is_Fundamental auto const *const data) requires(Count > 0)
+		{
+			using Type = std::remove_const_t<std::remove_reference_t<decltype(*data)>>;
+			constexpr auto Size = sizeof(Type);
+			auto header = Header(Name, Description, type_name<Type>::value, unsigned_to_string<Count>::value);
+			return {std::string(header.data(), header.size()), (char const *const)data, Count * Size};
+		}
+
+		template <size_t const Count>
+		static FundamentalEntry Entry(const auto Name, const auto Description, is_Fundamental auto const (&arr)[Count])
+		{
+			return Entry<Count>(Name,Description,&arr[0]); // force the array to a pointer
+		}
+
+		static FundamentalEntry Entry(const auto Name, const auto Description, is_Fundamental auto const *const data, const size_t Count)
 		{
 			using Type = std::remove_const_t<std::remove_reference_t<decltype(*data)>>;
 			constexpr size_t Size = sizeof(Type);
-			constexpr std::string_view const header = Header_fundamental_v<Name, Description, type_name_v<Type>, unsigned_to_string_v<Count>>;
-			return {std::string(header), (char const *const)data, Count * Size};
-		}
-
-		template <std::string_view const &Name, std::string_view const &Description, size_t const Count>
-		static FundamentalEntry Entry(is_Fundamental auto const (&arr)[Count])
-		{
-			return Entry<Name, Description, Count>(&arr[0]); // force the array to a pointer
-		}
-
-		static FundamentalEntry Entry(std::string_view const Name, std::string_view const Description, is_Fundamental auto const *const data, size_t const Count = 1)
-		{
-			using Type = std::remove_const_t<std::remove_reference_t<decltype(*data)>>;
-			constexpr size_t Size = sizeof(Type);
-			std::string header = Header_fundamental(Name, Description, type_name_v<Type>, std::to_string(Count));
+			std::string header = Header(Name, Description, type_name<Type>::value, std::to_string(Count));
 			return {header, (char const *const)data, Count * Size};
 		}
 
-		static StructEntry Entry(const std::string_view Name, const std::string_view Description, is_Class auto const * const data, size_t Count, std::convertible_to<const StructMember> auto const... child_entries)
+		static StructEntry Entry(const auto Name, const auto Description, is_Class auto const * const data, size_t Count, std::convertible_to<const StructMember> auto const... child_entries)
 		{
 			constexpr size_t Size = sizeof(*data);
 			size_t total_size = 0;
@@ -89,7 +91,7 @@ namespace BasicLog
 				}
 				type += ",\n" + child.header;
 			}
-			std::string header = Header_complex(Name, Description, type, std::to_string(Count));
+			std::string header = Header_nested(Name, Description, type, std::to_string(Count));
 
 			if (Size != total_size)
 				throw error(Name, Description, "size mismatch. data size is " + std::to_string(Size) + " total children size is " + std::to_string(total_size) +

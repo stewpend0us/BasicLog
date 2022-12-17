@@ -21,8 +21,8 @@ int main(void)
 	//	true, true, true, true, 1.0, 2, 3, 3.14
 	// };
 
-	// double a[7] = {-42.0};
-	// int b;
+	double a[7] = {-42.0};
+	int b;
 	// int8_t c;
 	// bool d;
 	// bool *e = &d;
@@ -31,20 +31,23 @@ int main(void)
 	static constexpr std::array<char,4> c3 = {'1','2','3','4'};
 	static constexpr char q = '"';
 	static constexpr auto l = concat("{", "name", q, c1, "defg", c3);
-	std::cout << std::string_view(l.data(), l.size());
-	std::cout << '\n';
-	std::cout << l.size();
-	std::cout << '\n';
+	//std::cout << std::string_view(l.data(), l.size());
+	//std::cout << '\n';
+	//std::cout << l.size();
+	//std::cout << '\n';
 	//std::cout << l.data() << tl;
 	//std::cout << '\n';
 
-	// std::string s = Header_complex(aa, aa, aa, aa);
-	// std::cout << s << '\n';
-	//  static auto E1 = Log::Entry<aa, _static__>(a);
+	//auto test = test_to_string(123456);
+	constexpr auto s = Header_nested(c1, c1, l, unsigned_to_string<12354234>::value);
+	std::cout << std::string_view(s.data(),s.size());
+	//std::cout << test << '\n';
+
+	static auto E1 = Log::Entry<1>(c1,c3, &b);
 	//  static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
 	//  static auto E3 = Log::Entry<aa, _static__, 5>(&a[0]);
 	////static auto E4 = Log::Entry(aa,"dynamic",&stuff);
-	// std::cout << E1.header;
+	std::cout << E1.header;
 	// std::cout << E2.header;
 	// std::cout << E3.header;
 

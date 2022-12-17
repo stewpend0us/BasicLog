@@ -1,52 +1,34 @@
 #pragma once
-#include <type_traits>
-#include "ConstexprString.hpp"
-#include "type_name.hpp"
-#include "unsigned_to_string.hpp"
-
-#define NL "\n"
+#include "chararr.hpp"
 
 namespace BasicLog
 {
 	namespace detail
 	{
-		constexpr std::string_view sl = "{";
-		constexpr std::string_view sr = "}\n";
-		constexpr std::string_view bl = "[\n";
-		constexpr std::string_view br = "]";
-		constexpr std::string_view c = ",";
-		constexpr std::string_view q = "\"";
-		constexpr std::string_view name = "\"name\":";
-		constexpr std::string_view desc = "\"desc\":";
-		constexpr std::string_view size = "\"size\":";
-		constexpr std::string_view type = "\"type\":";
 
-		template <std::string_view const &Name, std::string_view const &Description, std::string_view const &Before, std::string_view const &Type, std::string_view const &After, std::string_view const &Size>
-		struct Header
-		{
-			constexpr static std::string_view value = join_v<sl, name, q, Name, q, c, desc, q, Description, q, c, size, Size, c, type, Before, Type, After, sr>;
-		};
+		static constexpr char q = '"';
+		static constexpr char c = ',';
+		static constexpr char br = ']';
+		static constexpr char bl[] = "[\n";
+		static constexpr char name[] = "\"name\":";
+		static constexpr char desc[] = "\"desc\":";
+		static constexpr char size[] = "\"size\":";
+		static constexpr char type[] = "\"type\":";
 
-		template <std::string_view const &Before, std::string_view const &After>
-		std::string Header_dynamic(std::string_view const Name, std::string_view const Description, std::string_view const Type, std::string_view const Size)
+		constexpr auto Header_general(const auto &Name, const auto &Description, const auto &Before, const auto &Type, const auto &After, const auto &Size)
 		{
-			return std::string(join_v<sl, name, q>).append(Name).append(join_v<q, c, desc, q>).append(Description).append(join_v<q, c, size>).append(Size).append(join_v<c, type, Before>).append(Type).append(join_v<After, sr>);
-		};
+			return concat("{", name, q, Name, q, c, desc, q, Description, q, c, size, Size, c, type, Before, Type, After, "}\n");
+		}
+
 	}
 
-	template <std::string_view const &Name, std::string_view const &Description, std::string_view const &Type, std::string_view const &Size>
-	constexpr std::string_view Header_fundamental_v = detail::Header<Name, Description, detail::q, Type, detail::q, Size>::value;
-
-	template <std::string_view const &Name, std::string_view const &Description, std::string_view const &Type, std::string_view const &Size>
-	constexpr std::string_view Header_complex_v = detail::Header<Name, Description, detail::bl, Type, detail::br, Size>::value;
-
-	std::string Header_fundamental(std::string_view const Name, std::string_view const Description, std::string_view const Type, std::string_view const Size)
+	constexpr auto Header(const auto &Name, const auto &Description, const auto &Type, const auto &Size)
 	{
-		return detail::Header_dynamic<detail::q, detail::q>(Name, Description, Type, Size);
+		return detail::Header_general(Name, Description, detail::q, Type, detail::q, Size);
 	}
 
-	std::string Header_complex(std::string_view const Name, std::string_view const Description, std::string_view const Type, std::string_view const Size)
+	constexpr auto Header_nested(const auto &Name, const auto &Description, const auto &Type, const auto &Size)
 	{
-		return detail::Header_dynamic<detail::bl, detail::br>(Name, Description, Type, Size);
+		return detail::Header_general(Name, Description, detail::bl, Type, detail::br, Size);
 	}
 }

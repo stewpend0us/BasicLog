@@ -23,10 +23,8 @@ namespace detail
 	{
 	};
 
-	template <unsigned num>
-	struct unsigned_to_string : explode<num / 10, num % 10>
-	{
-	};
 }
 template <unsigned num>
-constexpr std::string_view unsigned_to_string_v = detail::unsigned_to_string<num>::value;
+struct unsigned_to_string : detail::explode<num / 10, num % 10>
+{
+};
