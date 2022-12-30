@@ -1,36 +1,46 @@
 // #include <Log.hpp>
 #include <iostream>
 #include "Log.hpp"
-#include "chararr.hpp"
+// #include "chararr.hpp"
 
 using namespace BasicLog;
 
 int main(void)
 {
 
-	// struct stuff
-	//{
-	//	bool c[4];
-	//	float d;
-	//	int b[2];
-	//	double a;
-	// };
+	struct stuff
+	{
+		bool c[3];
+		float d;
+		int b[2];
+		double a;
+	};
 
-	// struct stuff stuff
-	//{
-	//	true, true, true, true, 1.0, 2, 3, 3.14
-	// };
+	struct junk
+	{
+		double a;
+	};
+
+	struct stuff sstuff
+	{
+		true, true, true, 1.0, 2, 3, 3.14
+	};
 
 	double a[7] = {-42.0};
 	int b;
-	// int8_t c;
-	// bool d;
-	// bool *e = &d;
-	// char f;
+	int8_t c;
+	bool d;
+	bool *e = &d;
+	char f;
 
-	auto s = Header_nested("lol", "haha", "asdf", unsigned_to_string<12354234>::value);
-	std::cout << std::string_view(s.data(), s.size());
-	// std::cout << test << '\n';
+	std::cout << alignof(bool) << '\n';
+	std::cout << alignof(float) << '\n';
+	std::cout << alignof(int) << '\n';
+	std::cout << alignof(double) << '\n';
+
+	// auto s = Header_nested("lol", "haha", "asdf", std::to_string(12354234));
+	// std::cout << s;
+	//  std::cout << test << '\n';
 
 	// static auto E1 = Log::Entry("a","b", &b,3);
 	//   static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
@@ -40,26 +50,28 @@ int main(void)
 	//  std::cout << E2.header;
 	//  std::cout << E3.header;
 
-	// Entry L("test", "just a test log",
-	//		// Entry("bad", "pointer type", &e), // doesn't compile
-	//		Entry("a", "data a", &a),
-	//		Entry("b", "data b", &b),
-	//		Entry("container", "of things",
-	//			  Entry("c", "data c", &c),
-	//			  Entry("d", "data d", &d),
-	//			  Entry("nested", "more things",
-	//					Entry("a", "a again", &a))),
-	//		Entry("e", "also d", e),
-	//		Entry("stuff", "a struct", &stuff,
-	//			  Child::Entry<bool,4>("s1", "element1"),
-	//			  Child::Entry<float>("s2", "element2"),
-	//			  Child::Entry<int,2>("s3", "entry3"),
-	////				Entry("bad","bad",&b), // doesn't compile
-	////				Child::Entry<bool>("extra", "too much"), // doesn't run
-	//			  Child::Entry<double>("s4", "entry4")),
-	//		// Entry("bad", "a struct again", &stuff), // doesn't compile
-	//		// Entry("bad", "of nothing"), // doesn't compile
-	//		Entry("f", "data f", &f),
-	//		Entry("last", "last one", &a));
-	// std::cout << L.get_header() << '\n';
+	Log L("test", "just a test log",
+		  // Entry("bad", "pointer type", &e), // doesn't compile
+		  Log::Entry("a", "data a", a),
+		  Log::Entry("b", "data b", &b, 1),
+		  Log::Entry("container", "of things",
+					 Log::Entry("c", "data c", &c, 1),
+					 Log::Entry("d", "data d", &d, 1),
+					 Log::Entry("nested", "more things",
+								Log::Entry("a", "a again", a))),
+		  Log::Entry("e", "also d", e, 1),
+		  Log::Entry("stuff", "a struct", &sstuff, 1,
+					 Log::Entry("s1_long_na", "element1", &stuff::b),
+					 Log::Entry("s2", "thing 2", &junk::a)),
+		  // Log::Entry<bool,3>("s1_long_na", "element1"),
+		  // Log::Entry<float>("s2", "element2"),
+		  // Log::Entry<int,3>("s3", "entry3"),
+		  ////				Entry("bad","bad",&b), // doesn't compile
+		  ////				Child::Entry<bool>("extra", "too much"), // doesn't run
+		  // Log::Entry<double>("s4", "entry4")),
+		  // Entry("bad", "a struct again", &stuff), // doesn't compile
+		  // Entry("bad", "of nothing"), // doesn't compile
+		  Log::Entry("f", "data f", &f, 1),
+		  Log::Entry("last", "last one", a));
+	//		 std::cout << L.MainEntry.header << '\n';
 }

@@ -5,26 +5,19 @@
 
 namespace detail
 {
-	// falsy placeholder so we can static_assert in the fallback for type_name
-	template <typename T>
-	struct assert_false : std::false_type
-	{
-		// might as well use this scope for some static asserts while we're at it
-		static_assert(sizeof(long double) == 128 / 8, "assumed long double size");
-		static_assert(sizeof(double) == 64 / 8, "assumed double size");
-		static_assert(sizeof(float) == 32 / 8, "assumed float size");
-		static_assert(sizeof(bool) == 8 / 8, "assumed bool size");
-		static_assert(sizeof(char) == 8 / 8, "assumed char size");
-	};
+	static_assert(sizeof(long double) == 128 / 8, "assumed long double size");
+	static_assert(sizeof(double) == 64 / 8, "assumed double size");
+	static_assert(sizeof(float) == 32 / 8, "assumed float size");
+	static_assert(sizeof(bool) == 8 / 8, "assumed bool size");
+	static_assert(sizeof(char) == 8 / 8, "assumed char size");
 
-}
-// fallback to a compiler error if there is no specialization for T
-template <typename T>
-struct type_name
-{
-	static_assert(detail::assert_false<T>::value, "type not supported");
-	static constexpr char value[] = "error";
-};
+	// fallback to a compiler error if there is no specialization for T
+	template <typename T>
+	struct type_name
+	{
+		static_assert(std::is_same_v<void, T> && "type not supported");
+		static constexpr char value[] = "error";
+	};
 
 // list of c++ name, my name
 #define X_LIST_TYPES         \
@@ -49,7 +42,11 @@ struct type_name
 	{                                          \
 		static constexpr char value[] = #name; \
 	};
-X_LIST_TYPES
+	X_LIST_TYPES
 #undef X
 
 #undef X_LIST_TYPES
+}
+
+template <typename T>
+constexpr auto type_name_v = detail::type_name<T>::value;
