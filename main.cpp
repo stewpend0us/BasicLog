@@ -1,7 +1,5 @@
-// #include <Log.hpp>
 #include <iostream>
 #include "Log.hpp"
-// #include "chararr.hpp"
 
 using namespace BasicLog;
 
@@ -33,15 +31,6 @@ int main(void)
 	bool *e = &d;
 	char f;
 
-	std::cout << alignof(bool) << '\n';
-	std::cout << alignof(float) << '\n';
-	std::cout << alignof(int) << '\n';
-	std::cout << alignof(double) << '\n';
-
-	// auto s = Header_nested("lol", "haha", "asdf", std::to_string(12354234));
-	// std::cout << s;
-	//  std::cout << test << '\n';
-
 	// static auto E1 = Log::Entry("a","b", &b,3);
 	//   static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
 	//   static auto E3 = Log::Entry<aa, _static__, 5>(&a[0]);
@@ -61,8 +50,8 @@ int main(void)
 								Log::Entry("a", "a again", a))),
 		  Log::Entry("e", "also d", e, 1),
 		  Log::Entry("stuff", "a struct", &sstuff, 1,
-					 Log::Entry("s1_long_na", "element1", &stuff::b),
-					 Log::Entry("s2", "thing 2", &junk::a)),
+					 Log::Entry("s1_long_na", "element1", &stuff::c),
+					 Log::Entry("s2", "thing 2", &stuff::a)),
 		  // Log::Entry<bool,3>("s1_long_na", "element1"),
 		  // Log::Entry<float>("s2", "element2"),
 		  // Log::Entry<int,3>("s3", "entry3"),
@@ -73,5 +62,5 @@ int main(void)
 		  // Entry("bad", "of nothing"), // doesn't compile
 		  Log::Entry("f", "data f", &f, 1),
 		  Log::Entry("last", "last one", a));
-	//		 std::cout << L.MainEntry.header << '\n';
+	std::cout << L.MainEntry.header << '\n';
 }

@@ -16,7 +16,6 @@ namespace detail
 	struct type_name
 	{
 		static_assert(std::is_same_v<void, T> && "type not supported");
-		static constexpr char value[] = "error";
 	};
 
 // list of c++ name, my name
