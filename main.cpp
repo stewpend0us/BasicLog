@@ -24,6 +24,7 @@ int main(void)
 		true, true, true, 1.0, 2, 3, 3.14
 	};
 
+	std::cout << std::setw(15) << "sstuff" << std::setw(20) << (void*)&sstuff << '\n';
 	double a[7] = {-42.0};
 	int b;
 	int8_t c;

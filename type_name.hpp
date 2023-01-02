@@ -5,11 +5,11 @@
 
 namespace detail
 {
-	static_assert(sizeof(long double) == 128 / 8, "assumed long double size");
-	static_assert(sizeof(double) == 64 / 8, "assumed double size");
-	static_assert(sizeof(float) == 32 / 8, "assumed float size");
-	static_assert(sizeof(bool) == 8 / 8, "assumed bool size");
-	static_assert(sizeof(char) == 8 / 8, "assumed char size");
+	static_assert(sizeof(long double) == 128 / 8 && "assumed long double size");
+	static_assert(sizeof(double) == 64 / 8 && "assumed double size");
+	static_assert(sizeof(float) == 32 / 8 && "assumed float size");
+	static_assert(sizeof(bool) == 8 / 8 && "assumed bool size");
+	static_assert(sizeof(char) == 8 / 8 && "assumed char size");
 
 	// fallback to a compiler error if there is no specialization for T
 	template <typename T>

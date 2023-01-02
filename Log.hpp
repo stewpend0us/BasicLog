@@ -6,6 +6,9 @@
 #include "Header.hpp"
 #include "type_name.hpp"
 
+#include <iostream>
+#include <iomanip>
+
 namespace BasicLog
 {
 	template <class T>
@@ -27,45 +30,68 @@ namespace BasicLog
 		struct LogEntry
 		{
 			LogEntry(const std::string_view Name, const std::string_view Description, const std::string_view Type, char const *const Ptr, size_t Count, size_t Size, size_t Stride)
-				: name(Name), description(Description), type(Type), count(Count), size(Size), stride(Stride), ptr(Ptr), header(Header(name, description, type, count * size))
+				: name(Name), description(Description), count(Count), ptr(Ptr), size(Size), stride(Stride), type(Type), header(Header(name, description, type, count))
 			{
 			}
 
-			LogEntry(const std::string_view Name, const std::string_view Description, const std::string_view Type, char const *const Ptr, size_t Count, size_t Size, size_t Stride, std::convertible_to<LogEntry> auto const... child_entries)
-				: name(Name), description(Description), type(Type), count(Count), size(Size), stride(Stride), ptr(Ptr), header(Header(name, description, type, count * size)), children({child_entries...})
+			LogEntry(const std::string_view Name, const std::string_view Description, char const *const Ptr, size_t Count, std::convertible_to<LogEntry> auto const... child_entries)
+				: name(Name), description(Description), count(Count), ptr(Ptr), children({child_entries...})
 			{
+				static_assert(sizeof...(child_entries) > 0 && "must have at least one child");
+				size = children[0].count * children[0].size;
+				type = children[0].header;
+				for (size_t i = 1; i < children.size(); i++)
+				{
+					size += children[i].count * children[i].size;
+					type += ",\n" + children[i].header;
+				}
+				header = Header_nested(name, description, type, count);
 			}
-
-			//			std::string header() const
-			//			{
-			//				// TODO determine "type"
-			//				//{
-			//				//	LogEntry child[] = {child_entries...};
-			//				//	size_t size = child[0].count * child[0].size;
-			//				//	std::string type(child[0].header());
-			//				//	for (size_t i = 1; i < sizeof...(child_entries); i++)
-			//				//	{
-			//				//		size += child[i].count * child[i].size;
-			//				//		type += ",\n" + child[i].header();
-			//				//	}
-			//				return Header(name, description, type, count * size);
-			//			}
 
 			const std::string_view name;
 			const std::string_view description;
-			const std::string_view type;
+			const size_t count;
+			const char *const ptr;
+			size_t size;
+			size_t stride;
+			std::string type;
+			std::string header;
+			std::vector<LogEntry> children;
+		};
+
+		struct LoggedItem
+		{
+			const std::string_view name;
+			const char *const ptr;
 			const size_t count;
 			const size_t size;
 			const size_t stride;
-			const char *const ptr;
-			const std::string header;
-			std::vector<LogEntry> children;
 		};
 
 		Log(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
 			: MainEntry(Entry(Name, Description, child_entries...))
 		{
-			// TODO reduce the child_entries down to a flat list of things we can loop over and log
+			std::function<void(LogEntry)> extract;
+			extract = [&](LogEntry L)
+			{
+				if (L.children.empty())
+				{
+					Items.push_back({L.name, L.ptr, L.count, L.size, L.stride});
+					return;
+				}
+				for (auto c : L.children)
+				{
+					extract(c);
+				}
+			};
+			extract(MainEntry);
+
+			const auto w = std::setw(7);
+			std::cout << std::setw(15) << "name" << std::setw(20) << "address" << w << "count" << w << "size" << w << "stride" << '\n';
+			for (auto i : Items)
+			{
+				std::cout << std::setw(15) << i.name << std::setw(20) << (void*)i.ptr << w << i.count << w << i.size << w << i.stride << '\n';
+			}
 		}
 
 		// Append(LogEntry)?
@@ -73,10 +99,7 @@ namespace BasicLog
 		// a zero size container. cannot represent an array, just a container of things
 		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
 		{
-			std::string type;
-			size_t size;
-			// TODO figureout size and type
-			return LogEntry(Name, Description, type, (char *)nullptr, 1, size, size, child_entries...);
+			return LogEntry(Name, Description, (char *)nullptr, 1, child_entries...);
 		}
 
 		// a fundamental
@@ -96,40 +119,33 @@ namespace BasicLog
 		}
 
 		// a struct (user supplied spec)
-
 		template <is_Class B>
 		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const *const data, size_t Count, std::convertible_to<const StructMember<B>> auto const... child_entries)
 		{
-			std::string type;
-			size_t size;
-			// TODO
-			return LogEntry(Name, Description, type, (char *)data, Count, size, sizeof(B), (std::invoke(child_entries, data), ...));
+			return LogEntry(Name, Description, (char *)data, Count, std::invoke(child_entries, data)...);
 		}
 
 		template <is_Fundamental A, is_Class B>
 		static const StructMember<B> Entry(const std::string_view Name, const std::string_view Description, A B::*Member, size_t Count = 1)
 		{
-			std::string type;
-			// TODO
 			return [=](B const *const Data)
 			{
-				return LogEntry(Name, Description, type, (char *)&(Data->*Member), Count, sizeof(A), sizeof(B));
+				return LogEntry(Name, Description, type_name_v<A>, (char *)&(Data->*Member), Count, sizeof(A), sizeof(B));
 			};
 		}
 
 		template <is_Fundamental A, is_Class B, size_t Count>
 		static const StructMember<B> Entry(const std::string_view Name, const std::string_view Description, A (B::*Member)[Count])
 		{
-			std::string type;
-			// TODO
 			return [=](B const *const Data)
 			{
-				return LogEntry(Name, Description, type, (char *)&(Data->*Member), Count, sizeof(A), sizeof(B));
+				return LogEntry(Name, Description, type_name_v<A>, (char *)&(Data->*Member), Count, sizeof(A), sizeof(B));
 			};
 		}
 
 		//	private:
 		LogEntry MainEntry;
+		std::vector<LoggedItem> Items;
 
 		//		static auto error(const std::string_view name, const std::string_view description, const std::string_view msg)
 		//		{
