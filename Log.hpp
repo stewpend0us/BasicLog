@@ -47,7 +47,10 @@ namespace BasicLog
 				}
 				header = Header_nested(name, description, type, count);
 			}
-
+//TODO make LoggedItem just be a part of this structure
+// the headers look right but the creation of Items is not.
+// need to "clump" the memory together as much as possible
+// and handle the "stride" at construction time rather than log time
 			const std::string_view name;
 			const std::string_view description;
 			const size_t count;
@@ -90,7 +93,7 @@ namespace BasicLog
 			std::cout << std::setw(15) << "name" << std::setw(20) << "address" << w << "count" << w << "size" << w << "stride" << '\n';
 			for (auto i : Items)
 			{
-				std::cout << std::setw(15) << i.name << std::setw(20) << (void*)i.ptr << w << i.count << w << i.size << w << i.stride << '\n';
+				std::cout << std::setw(15) << i.name << std::setw(20) << (void *)i.ptr << w << i.count << w << i.size << w << i.stride << '\n';
 			}
 		}
 
@@ -123,6 +126,12 @@ namespace BasicLog
 		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const *const data, size_t Count, std::convertible_to<const StructMember<B>> auto const... child_entries)
 		{
 			return LogEntry(Name, Description, (char *)data, Count, std::invoke(child_entries, data)...);
+		}
+
+		template <is_Class B, size_t Count>
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const (&arr)[Count], std::convertible_to<const StructMember<B>> auto const... child_entries)
+		{
+			return Entry(Name, Description, &arr[0], Count, child_entries...);
 		}
 
 		template <is_Fundamental A, is_Class B>

@@ -24,7 +24,9 @@ int main(void)
 		true, true, true, 1.0, 2, 3, 3.14
 	};
 
-	std::cout << std::setw(15) << "sstuff" << std::setw(20) << (void*)&sstuff << '\n';
+	struct stuff sarr[3];
+
+	std::cout << std::setw(15) << "sstuff" << std::setw(20) << (void *)&sstuff << '\n';
 	double a[7] = {-42.0};
 	int b;
 	int8_t c;
@@ -53,6 +55,9 @@ int main(void)
 		  Log::Entry("stuff", "a struct", &sstuff, 1,
 					 Log::Entry("s1_long_na", "element1", &stuff::c),
 					 Log::Entry("s2", "thing 2", &stuff::a)),
+		  Log::Entry("sarr", "array of stuff", sarr,
+					 Log::Entry("first", "3 bool", &stuff::c),
+					 Log::Entry("second", "a float", &stuff::d)),
 		  // Log::Entry<bool,3>("s1_long_na", "element1"),
 		  // Log::Entry<float>("s2", "element2"),
 		  // Log::Entry<int,3>("s3", "entry3"),
