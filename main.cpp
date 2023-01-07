@@ -8,7 +8,7 @@ int main(void)
 
 	struct stuff
 	{
-		bool c[3];
+		bool c[4];
 		float d;
 		int b[2];
 		double a;
@@ -21,7 +21,7 @@ int main(void)
 
 	struct stuff sstuff
 	{
-		true, true, true, 1.0, 2, 3, 3.14
+		true, true, true,true, 1.0, 2, 3, 3.14
 	};
 
 	struct stuff sarr[3];
@@ -45,7 +45,7 @@ int main(void)
 	Log L("test", "just a test log",
 		  // Entry("bad", "pointer type", &e), // doesn't compile
 		  Log::Entry("a", "data a", a),
-		  Log::Entry("b", "data b", &b, 1),
+		  Log::Entry("b", "data b", &b),
 		  Log::Entry("container", "of things",
 					 Log::Entry("c", "data c", &c, 1),
 					 Log::Entry("d", "data d", &d, 1),
@@ -54,10 +54,14 @@ int main(void)
 		  Log::Entry("e", "also d", e, 1),
 		  Log::Entry("stuff", "a struct", &sstuff, 1,
 					 Log::Entry("s1_long_na", "element1", &stuff::c),
-					 Log::Entry("s2", "thing 2", &stuff::a)),
+					 Log::Entry("s2", "thing 2", &stuff::a),
+					 Log::Entry("fourth", "2 ints", &stuff::b),
+					 Log::Entry("second", "a float", &stuff::d)),
 		  Log::Entry("sarr", "array of stuff", sarr,
 					 Log::Entry("first", "3 bool", &stuff::c),
-					 Log::Entry("second", "a float", &stuff::d)),
+					 Log::Entry("second", "a float", &stuff::d),
+					 Log::Entry("third", "a double", &stuff::a),
+					 Log::Entry("fourth", "2 ints", &stuff::b)),
 		  // Log::Entry<bool,3>("s1_long_na", "element1"),
 		  // Log::Entry<float>("s2", "element2"),
 		  // Log::Entry<int,3>("s3", "entry3"),
@@ -68,5 +72,5 @@ int main(void)
 		  // Entry("bad", "of nothing"), // doesn't compile
 		  Log::Entry("f", "data f", &f, 1),
 		  Log::Entry("last", "last one", a));
-	std::cout << L.MainEntry.header << '\n';
+	std::cout << L.MainEntry.header() << '\n';
 }
