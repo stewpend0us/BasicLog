@@ -6,12 +6,37 @@ using namespace BasicLog;
 int main(void)
 {
 
+	struct simple
+	{
+		char a[3];
+		uint16_t b;
+	};
+
+	struct simple simple_arr[3];
+	//Entry(simple_arr,
+	//	Entry(&stuff::a),
+	//  Entry(&stuff::b));
+	//|a0|a1|a2|  |b___|a0|a1|a2|  |b___|a0|a1|a2|  |b___|
+	//Entry(simple_arr,
+	//  Entry(&stuff::b));
+	//|  |  |  |  |b___|  |  |  |  |b___|  |  |  |  |b___|
+	//Entry(simple_arr,
+	//  Entry(&stuff::a, 3, 1, 0);
+	//|  |a1|  |  |    |  |a1|  |  |    |  |a1|  |  |    |
+	//Entry(simple_arr, 2, 2, 0
+	//  Entry(&stuff::a, 1, 1);
+	//|  |a1|  |  |    |  |  |  |  |    |  |a1|  |  |    |
+
+	//{"name":"top","desc":"","type":"","count":3,"parent":"","ind":0} // data: ptr to a, size = 3, ptr to b, size = 1, ptr to a, size = 3, ptr to b size = 1, ptr to a
+	//{"name":"a","desc":"","type":"char","count":3,"parent":"top","ind":0} // data: ptr to a, size = sizeof(char)*3
+	//{"name":"b","desc":"","type":"uint16_t","count":1,"parent":"top","ind":1} // data: ptr to b, size = sizeof(uint16_t)*1
+
 	struct stuff
 	{
-		bool c[4];
-		float d;
-		int b[2];
-		double a;
+		bool a[3];
+		float b;
+		int c[2];
+		double d;
 	};
 
 	struct junk
@@ -21,7 +46,7 @@ int main(void)
 
 	struct stuff sstuff
 	{
-		true, true, true,true, 1.0, 2, 3, 3.14
+		true, true,true, 1.0, 2, 3, 3.14
 	};
 
 	struct stuff sarr[3];
@@ -53,15 +78,15 @@ int main(void)
 								Log::Entry("a", "a again", a))),
 		  Log::Entry("e", "also d", e, 1),
 		  Log::Entry("stuff", "a struct", &sstuff, 1,
-					 Log::Entry("s1_long_na", "element1", &stuff::c),
-					 Log::Entry("s2", "thing 2", &stuff::a),
-					 Log::Entry("fourth", "2 ints", &stuff::b),
-					 Log::Entry("second", "a float", &stuff::d)),
+					 Log::Entry("a", "element1", &stuff::a),
+					 Log::Entry("b", "thing 2", &stuff::b),
+					 Log::Entry("c", "2 ints", &stuff::c),
+					 Log::Entry("d", "a float", &stuff::d)),
 		  Log::Entry("sarr", "array of stuff", sarr,
-					 Log::Entry("first", "3 bool", &stuff::c),
-					 Log::Entry("second", "a float", &stuff::d),
-					 Log::Entry("third", "a double", &stuff::a),
-					 Log::Entry("fourth", "2 ints", &stuff::b)),
+					 Log::Entry("a", "element1", &stuff::a),
+					 Log::Entry("c", "2 ints", &stuff::c),
+					 Log::Entry("b", "thing 2", &stuff::b),
+					 Log::Entry("d", "a float", &stuff::d)),
 		  // Log::Entry<bool,3>("s1_long_na", "element1"),
 		  // Log::Entry<float>("s2", "element2"),
 		  // Log::Entry<int,3>("s3", "entry3"),
