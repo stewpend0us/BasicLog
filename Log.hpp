@@ -25,6 +25,30 @@ namespace BasicLog
 		{
 			const char *ptr;
 			size_t count;
+
+			// look for contiguous chunks of memory
+			static std::vector<DataChunk> condense(std::vector<DataChunk> const &chunk)
+			{
+				std::vector<DataChunk> result;
+				DataChunk L0{chunk[0]}; // may modify this one so make a copy
+				size_t i = 1;
+				while (i < chunk.size())
+				{
+					DataChunk const *L1 = &chunk[i];
+					if (L0.ptr + L0.count == L1->ptr)
+					{
+						L0.count += L1->count;
+					}
+					else
+					{
+						result.push_back(L0);
+						L0 = *L1;
+					}
+					i++;
+				}
+				result.push_back(L0);
+				return result;
+			}
 		};
 
 		struct LogEntry;
@@ -78,12 +102,13 @@ namespace BasicLog
 				}
 
 				// sort the children
-				std::sort(children.begin(), children.end(),
-						  [](const auto &AA, const auto &BB) -> bool
-						  { 
-								if (AA.data.empty()) return true;
-								if (BB.data.empty()) return false;
-								return AA.data[0].ptr < BB.data[0].ptr; });
+				sort_children();
+				//				std::sort(children.begin(), children.end(),
+				//						  [](const auto &AA, const auto &BB) -> bool
+				//						  {
+				//								if (AA.data.empty()) return true;
+				//								if (BB.data.empty()) return false;
+				//								return AA.data[0].ptr < BB.data[0].ptr; });
 
 				// extract the sorted order
 				std::vector<size_t> order;
@@ -110,8 +135,7 @@ namespace BasicLog
 					}
 				}
 
-				// TODO 'condense' the list of data
-				// implemented in the Log constructor currently
+				data = DataChunk::condense(data);
 			}
 
 			std::string header() const
@@ -129,9 +153,24 @@ namespace BasicLog
 				static constexpr std::string_view count = "\"count\":";
 				//{"name":"{name}","desc":"{description}","type":"{type}","count":{count},"parent":"{parent_name}","ind":{parent_index}}
 				auto h = std::string(l).append(name).append(q).append(this->name).append(qc).append(desc).append(q).append(this->description).append(qc).append(type).append(q).append(this->type).append(qc).append(count).append(std::to_string(this->count)).append(c).append(parent).append(q).append(this->parent).append(qc).append(ind).append(std::to_string(this->parent_index)).append(r);
-				for (auto & h2 : sub_headers)
+				for (auto &h2 : sub_headers)
 					h.append(",\n\t").append(h2);
 				return h;
+			}
+
+			static void sort_children(std::vector<LogEntry> &children)
+			{
+				// sort the children
+				std::sort(children.begin(), children.end(),
+						  [](const auto &AA, const auto &BB) -> bool
+						  { 
+								if (AA.data.empty()) return true;
+								if (BB.data.empty()) return false;
+								return AA.data[0].ptr < BB.data[0].ptr; });
+			}
+			void sort_children(void)
+			{
+				sort_children(children);
 			}
 
 			std::runtime_error error(const std::string_view msg) const
@@ -174,28 +213,31 @@ namespace BasicLog
 		{
 			MainEntry.parent = "";
 			MainEntry.parent_index = 0;
-			std::vector<LogEntry> AllItems;
+			std::vector<LogEntry> AllEntries;
 			std::function<void(LogEntry)> flatten;
 			flatten = [&](LogEntry L)
 			{
-				AllItems.push_back(L);
+				AllEntries.push_back(L);
 				for (auto &c : L.children)
 				{
 					flatten(c);
 				}
 			};
 			flatten(MainEntry);
-
-			for (auto &p : AllItems)
+			LogEntry::sort_children(AllEntries);
+			std::vector<DataChunk> AllChunks;
+			for (auto &c : AllEntries)
 			{
-				std::cout << p.header() << '\n';
-				for (auto &d : p.data)
-				{
-					std::cout << (void *)d.ptr << "    " << d.count << "    " << (void *)(d.ptr + d.count) << '\n';
-				}
+				AllChunks.insert(AllChunks.end(), c.data.begin(), c.data.end());
+				std::cout << c.header() << '\n';
 			}
 			std::cout << '\n';
+			AllChunks = DataChunk::condense(AllChunks);
 
+			for (auto &c : AllChunks)
+			{
+				std::cout << (void*)c.ptr << "     " << c.count << "     " << (void*)(c.ptr + c.count) << '\n';
+			}
 			//// sort the list by address
 			// std::sort(AllItems.begin(), AllItems.end(), [](const auto &A, const auto &B) -> bool
 			//		  { return A.ptr < B.ptr; });
@@ -209,31 +251,6 @@ namespace BasicLog
 			//	std::cout << p.header() << '\n';
 			// }
 			// std::cout << '\n';
-
-			//// look for contiguous chunks of memory
-			// std::vector<LoggedItem> FinalItems;
-			//{
-			//	LoggedItem L{AllItems[0].name, AllItems[0].ptr, AllItems[0].count, AllItems[0].size, AllItems[0].stride}; // may modify this one so make a copy
-			//	LoggedItem const *Li = &L;
-			//	size_t i = 1;
-			//	while (i < AllItems.size())
-			//	{
-			//		auto tmp = LoggedItem{AllItems[i].name, AllItems[i].ptr, AllItems[i].count, AllItems[i].size, AllItems[i].stride};
-			//		Li = &tmp;
-			//		if (L.ptr + L.size == Li->ptr)
-			//		{
-			//			L.name += "," + Li->name;
-			//			L.size += Li->size;
-			//		}
-			//		else
-			//		{
-			//			FinalItems.push_back(L);
-			//			L = *Li;
-			//		}
-			//		i++;
-			//	}
-			//	FinalItems.push_back(L);
-			// }
 
 			// const auto w = std::setw(7);
 			// std::cout << std::setw(15) << "name" << std::setw(20) << "address" << w << "count" << w << "size" << w << "stride" << '\n';
