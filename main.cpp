@@ -13,18 +13,18 @@ int main(void)
 	};
 
 	struct simple simple_arr[3];
-	//Entry(simple_arr,
+	// Entry(simple_arr,
 	//	Entry(&stuff::a),
-	//  Entry(&stuff::b));
+	//   Entry(&stuff::b));
 	//|a0|a1|a2|  |b___|a0|a1|a2|  |b___|a0|a1|a2|  |b___|
-	//Entry(simple_arr,
-	//  Entry(&stuff::b));
+	// Entry(simple_arr,
+	//   Entry(&stuff::b));
 	//|  |  |  |  |b___|  |  |  |  |b___|  |  |  |  |b___|
-	//Entry(simple_arr,
-	//  Entry(&stuff::a, 3, 1, 0);
+	// Entry(simple_arr,
+	//   Entry(&stuff::a, 3, 1, 0);
 	//|  |a1|  |  |    |  |a1|  |  |    |  |a1|  |  |    |
-	//Entry(simple_arr, 2, 2, 0
-	//  Entry(&stuff::a, 1, 1);
+	// Entry(simple_arr, 2, 2, 0
+	//   Entry(&stuff::a, 1, 1);
 	//|  |a1|  |  |    |  |  |  |  |    |  |a1|  |  |    |
 
 	//{"name":"top","desc":"","type":"","count":3,"parent":"","ind":0} // data: ptr to a, size = 3, ptr to b, size = 1, ptr to a, size = 3, ptr to b size = 1, ptr to a
@@ -46,18 +46,18 @@ int main(void)
 
 	struct stuff sstuff
 	{
-		true, true,true, 1.0, 2, 3, 3.14
+		true, true, true, 1.0, 2, 3, 3.14
 	};
 
 	struct stuff sarr[3];
 
 	std::cout << std::setw(15) << "sstuff" << std::setw(20) << (void *)&sstuff << '\n';
-	double a[7] = {-42.0};
-	int b;
-	int8_t c;
-	bool d;
+	double a[3] = {-2.0, -1.0, 0.0};
+	int b = 1;
+	int8_t c = 2;
+	bool d = true;
 	bool *e = &d;
-	char f;
+	char f = 5;
 
 	// static auto E1 = Log::Entry("a","b", &b,3);
 	//   static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
@@ -67,35 +67,75 @@ int main(void)
 	//  std::cout << E2.header;
 	//  std::cout << E3.header;
 
-	Log L("test", "just a test log",
-		  // Entry("bad", "pointer type", &e), // doesn't compile
-		  Log::Entry("a", "data a", a),
-		  Log::Entry("b", "data b", &b),
-		  Log::Entry("container", "of things",
-					 Log::Entry("c", "data c", &c, 1),
-					 Log::Entry("d", "data d", &d, 1),
-					 Log::Entry("nested", "more things",
-								Log::Entry("a", "a again", a))),
-		  Log::Entry("e", "also d", e, 1),
-		  Log::Entry("stuff", "a struct", &sstuff, 1,
-					 Log::Entry("a", "element1", &stuff::a),
-					 Log::Entry("b", "thing 2", &stuff::b),
-					 Log::Entry("c", "2 ints", &stuff::c),
-					 Log::Entry("d", "a float", &stuff::d)),
-		  Log::Entry("sarr", "array of stuff", sarr,
-					 Log::Entry("a", "element1", &stuff::a),
-					 Log::Entry("c", "2 ints", &stuff::c),
-					 Log::Entry("b", "thing 2", &stuff::b),
-					 Log::Entry("d", "a float", &stuff::d)),
-		  // Log::Entry<bool,3>("s1_long_na", "element1"),
-		  // Log::Entry<float>("s2", "element2"),
-		  // Log::Entry<int,3>("s3", "entry3"),
-		  ////				Entry("bad","bad",&b), // doesn't compile
-		  ////				Child::Entry<bool>("extra", "too much"), // doesn't run
-		  // Log::Entry<double>("s4", "entry4")),
-		  // Entry("bad", "a struct again", &stuff), // doesn't compile
-		  // Entry("bad", "of nothing"), // doesn't compile
-		  Log::Entry("f", "data f", &f, 1),
-		  Log::Entry("last", "last one", a));
-	std::cout << L.MainEntry.header() << '\n';
+	Log L("test", "just a test log", Log::CompressionMethod::NONE,
+				// Entry("bad", "pointer type", &e), // doesn't compile
+				Log::Entry("a", "data a", a),
+				Log::Entry("b", "data b", &b),
+				Log::Entry("container", "of things",
+									 Log::Entry("c", "data c", &c, 1),
+									 Log::Entry("d", "data d", &d, 1),
+									 Log::Entry("nested", "more things",
+															Log::Entry("a", "a again", a))),
+				Log::Entry("e", "also d", e, 1),
+				Log::Entry("stuff", "a struct", &sstuff, 1,
+									 Log::Entry("a", "element1", &stuff::a),
+									 Log::Entry("b", "thing 2", &stuff::b),
+									 Log::Entry("c", "2 ints", &stuff::c),
+									 Log::Entry("d", "a float", &stuff::d)),
+				Log::Entry("sarr", "array of stuff", sarr,
+									 Log::Entry("a", "element1", &stuff::a),
+									 Log::Entry("c", "2 ints", &stuff::c),
+									 Log::Entry("b", "thing 2", &stuff::b),
+									 Log::Entry("d", "a float", &stuff::d)),
+				// Log::Entry<bool,3>("s1_long_na", "element1"),
+				// Log::Entry<float>("s2", "element2"),
+				// Log::Entry<int,3>("s3", "entry3"),
+				////				Entry("bad","bad",&b), // doesn't compile
+				////				Child::Entry<bool>("extra", "too much"), // doesn't run
+				// Log::Entry<double>("s4", "entry4")),
+				// Entry("bad", "a struct again", &stuff), // doesn't compile
+				// Entry("bad", "of nothing"), // doesn't compile
+				Log::Entry("f", "data f", &f, 1),
+				Log::Entry("last", "last one", a));
+
+	std::cout << "\n====================\n\n\n";
+
+	Log L2("simple", "log", Log::CompressionMethod::NONE,
+				 Log::Entry("a", "data a", a),
+				 Log::Entry("b", "data b", &b),
+				 Log::Entry("c", "data c", &c),
+				 Log::Entry("d", "data d", &d),
+				 Log::Entry("f", "data f", &f));
+	//	std::cout << L.MainEntry.header() << '\n';
+
+	std::cout << "L2 data (manual):\n";
+	for (int i = 0; i < sizeof(c); i++)
+	{
+		std::cout << (int)(((char *)(&c))[i]) << ", ";
+	}
+	for (int i = 0; i < sizeof(d); i++)
+	{
+		std::cout << (int)(((char *)(&d))[i]) << ", ";
+	}
+	for (int i = 0; i < sizeof(f); i++)
+	{
+		std::cout << (int)(((char *)(&f))[i]) << ", ";
+	}
+	for (int i = 0; i < sizeof(b); i++)
+	{
+		std::cout << (int)(((char *)(&b))[i]) << ", ";
+	}
+	for (int i = 0; i < sizeof(a); i++)
+	{
+		std::cout << (int)(((char *)(&a))[i]) << ", ";
+	}
+	std::cout << "\n\nL2 data (auto):\n";
+	for (auto &e : L2.data)
+	{
+		for (int i = 0; i < e.count; i++)
+		{
+			std::cout << (int)(e.ptr[i]) << ", ";
+		}
+	}
+	std::cout << "\n";
 }

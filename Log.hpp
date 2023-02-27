@@ -1,5 +1,6 @@
 #include <string_view>
 #include <string>
+#include <cstring>
 #include <vector>
 #include <functional>
 #include <unordered_set>
@@ -12,6 +13,8 @@
 
 namespace BasicLog
 {
+	//	constexpr std::string_view Version = "0";
+
 	template <class T>
 	concept is_Fundamental = std::is_fundamental_v<T>;
 
@@ -51,7 +54,7 @@ namespace BasicLog
 			}
 		};
 
-		struct LogEntry;
+		struct LogEntry; // forward declare so we can define StructMember
 
 		template <is_Class B>
 		using StructMember = std::function<LogEntry(B const *const)>;
@@ -59,7 +62,7 @@ namespace BasicLog
 		struct LogEntry
 		{
 			LogEntry(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
-				: name(Name), description(Description), type(""), count(1), children({child_entries...})
+					: name(Name), description(Description), type(""), count(1), children({child_entries...})
 			{
 				if (auto err = check_name())
 					throw err;
@@ -72,7 +75,7 @@ namespace BasicLog
 
 			template <is_Fundamental A>
 			LogEntry(const std::string_view Name, const std::string_view Description, A const *const Ptr, size_t Count)
-				: name(Name), description(Description), type(type_name_v<A>), count(Count)
+					: name(Name), description(Description), type(type_name_v<A>), count(Count)
 			{
 				if (auto err = check_name())
 					throw err;
@@ -81,7 +84,7 @@ namespace BasicLog
 
 			template <is_Class B>
 			LogEntry(const std::string_view Name, const std::string_view Description, B const *const Ptr, size_t Count, std::convertible_to<const StructMember<B>> auto const... child_entries)
-				: name(Name), description(Description), type(""), count(Count)
+					: name(Name), description(Description), type(""), count(Count)
 			{
 				// dump these into an array for easier use
 				std::array<StructMember<B>, sizeof...(child_entries)> SM = {child_entries...};
@@ -113,8 +116,8 @@ namespace BasicLog
 				// extract the sorted order
 				std::vector<size_t> order;
 				std::transform(children.begin(), children.end(), std::back_inserter(order),
-							   [](const auto &c) -> size_t
-							   { return c.parent_index; });
+											 [](const auto &c) -> size_t
+											 { return c.parent_index; });
 
 				// add the sorted child data to the parent data
 				// add the sorted child headers to the parent sub_headers
@@ -162,12 +165,13 @@ namespace BasicLog
 			{
 				// sort the children
 				std::sort(children.begin(), children.end(),
-						  [](const auto &AA, const auto &BB) -> bool
-						  { 
+									[](const auto &AA, const auto &BB) -> bool
+									{ 
 								if (AA.data.empty()) return true;
 								if (BB.data.empty()) return false;
 								return AA.data[0].ptr < BB.data[0].ptr; });
 			}
+
 			void sort_children(void)
 			{
 				sort_children(children);
@@ -208,9 +212,16 @@ namespace BasicLog
 			std::vector<LogEntry> children;
 		};
 
-		Log(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
-			: MainEntry(Entry(Name, Description, child_entries...))
+		enum CompressionMethod
 		{
+			NONE,
+			CompressionMethodCount
+		};
+
+	public:
+		Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::convertible_to<const LogEntry> auto const... child_entries)
+		{
+			LogEntry MainEntry(Name, Description, child_entries...);
 			MainEntry.parent = "";
 			MainEntry.parent_index = 0;
 			std::vector<LogEntry> AllEntries;
@@ -226,52 +237,35 @@ namespace BasicLog
 			flatten(MainEntry);
 			LogEntry::sort_children(AllEntries);
 			std::vector<DataChunk> AllChunks;
+			header.append("{\n");
+			// header.append("\"version\":\"").append(Version).append("\",\n");
+			header.append("\"compression\":\"").append(CompressionMethodName[Compression]).append("\",\n");
+			header.append("\"data_header\":[\n");
+			bool first = true;
 			for (auto &c : AllEntries)
 			{
 				AllChunks.insert(AllChunks.end(), c.data.begin(), c.data.end());
-				std::cout << c.header() << '\n';
+				data_size += c.count;
+				if (first)
+				{
+					first = false;
+				}
+				else
+				{
+					header.append(",\n");
+				}
+				header.append(c.header());
 			}
-			std::cout << '\n';
-			AllChunks = DataChunk::condense(AllChunks);
+			header.append("\n]\n}");
 
-			for (auto &c : AllChunks)
+			data = DataChunk::condense(AllChunks);
+
+			// display stuff (for now)
+			std::cout << header << '\n';
+			for (auto &c : data)
 			{
-				std::cout << (void*)c.ptr << "     " << c.count << "     " << (void*)(c.ptr + c.count) << '\n';
+				std::cout << (void *)c.ptr << "     " << c.count << "     " << (void *)(c.ptr + c.count) << '\n';
 			}
-			//// sort the list by address
-			// std::sort(AllItems.begin(), AllItems.end(), [](const auto &A, const auto &B) -> bool
-			//		  { return A.ptr < B.ptr; });
-
-			// std::vector<std::string_view> headers;
-			// std::vector<LoggedItem> sorted_data;
-			// for (auto &p : AllItems)
-			//{
-			//	headers.push_back(p.header());
-			//	sorted_data.insert(sorted_data.end(), p.data.begin(), p.data.end());
-			//	std::cout << p.header() << '\n';
-			// }
-			// std::cout << '\n';
-
-			// const auto w = std::setw(7);
-			// std::cout << std::setw(15) << "name" << std::setw(20) << "address" << w << "count" << w << "size" << w << "stride" << '\n';
-			// std::cout << "=======================in order (only not)=======================\n";
-			// auto first = sorted_data[0].ptr;
-			// for (auto &i : sorted_data)
-			//{
-			//	std::cout << std::setw(15) << i.name << std::setw(20) << i.ptr - first << w << i.count << w << i.size << w << i.stride << '\n';
-			// }
-			// std::cout << "=======================junk?=====================================\n";
-			// first = AllItems[5].ptr;
-			// for (auto &i : AllItems)
-			//{
-			//	std::cout << std::setw(15) << i.name << std::setw(20) << i.ptr - first << w << i.count << w << i.size << w << i.stride << '\n';
-			// }
-			// std::cout << "=======================final=====================================\n";
-			// first = FinalItems[0].ptr;
-			// for (auto &i : FinalItems)
-			//{
-			//	std::cout << std::setw(15) << i.name << std::setw(20) << i.ptr - first << w << i.count << w << i.size << w << i.stride << '\n';
-			// }
 		}
 
 		// Append(LogEntry)?
@@ -332,7 +326,24 @@ namespace BasicLog
 			};
 		}
 
-		//	private:
-		LogEntry MainEntry;
+		size_t record(char *const dest, size_t size)
+		{
+			if (size != data_size)
+				return 0;
+
+			size_t ind = 0;
+			for (auto &e : data)
+			{
+				memcpy(&dest[ind], e.ptr, e.count);
+				ind += e.count;
+			}
+			return size;
+		}
+
+//	private:
+		std::string header;
+		std::vector<DataChunk> data;
+		size_t data_size;
+		const std::string_view CompressionMethodName[CompressionMethodCount] = {"NONE"};
 	};
 }
