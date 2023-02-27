@@ -1,5 +1,4 @@
 #pragma once
-#include <string_view>
 #include <cstdint>
 #include <type_traits>
 
