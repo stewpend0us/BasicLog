@@ -78,15 +78,15 @@ int main(void)
 															Log::Entry("a", "a again", a))),
 				Log::Entry("e", "also d", e, 1),
 				Log::Entry("stuff", "a struct", &sstuff, 1,
-									 Log::Entry("a", "element1", &stuff::a),
-									 Log::Entry("b", "thing 2", &stuff::b),
-									 Log::Entry("c", "2 ints", &stuff::c),
-									 Log::Entry("d", "a float", &stuff::d)),
+									 Log::StructMember("a", "element1", &stuff::a),
+									 Log::StructMember("b", "thing 2", &stuff::b),
+									 Log::StructMember("c", "2 ints", &stuff::c),
+									 Log::StructMember("d", "a float", &stuff::d)),
 				Log::Entry("sarr", "array of stuff", sarr,
-									 Log::Entry("a", "element1", &stuff::a),
-									 Log::Entry("c", "2 ints", &stuff::c),
-									 Log::Entry("b", "thing 2", &stuff::b),
-									 Log::Entry("d", "a float", &stuff::d)),
+									 Log::StructMember("a", "element1", &stuff::a),
+									 Log::StructMember("c", "2 ints", &stuff::c),
+									 Log::StructMember("b", "thing 2", &stuff::b),
+									 Log::StructMember("d", "a float", &stuff::d)),
 				// Log::Entry<bool,3>("s1_long_na", "element1"),
 				// Log::Entry<float>("s2", "element2"),
 				// Log::Entry<int,3>("s3", "entry3"),
@@ -108,7 +108,7 @@ int main(void)
 				 Log::Entry("f", "data f", &f));
 	//	std::cout << L.MainEntry.header() << '\n';
 
-	std::vector<Log::LogEntry> test;
+	std::vector<Log::Entry> test;
 	test.push_back(Log::Entry("a", "data a", a));
 	test.push_back(Log::Entry("b", "data b", &b));
 	test.push_back(Log::Entry("c", "data c", &c));
