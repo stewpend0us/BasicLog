@@ -24,7 +24,9 @@ namespace BasicLog
 
 	class Log
 	{
-	public:
+
+	private:
+		// a location/size of memory (to be logged)
 		struct DataChunk
 		{
 			const char *ptr;
@@ -55,19 +57,22 @@ namespace BasicLog
 			}
 		};
 
+	public:
+		// something to be logged
 		struct LogEntry; // forward declare so we can define StructMember
 
+		// the member of a struct to be logged
 		template <is_Class B>
 		using StructMember = std::function<LogEntry(B const *const)>;
 
 		struct LogEntry
 		{
-			LogEntry(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
-					: name(Name), description(Description), type(""), count(1), children({child_entries...})
+			LogEntry(const std::string_view Name, const std::string_view Description, std::vector<LogEntry> child_entries)
+					: name(Name), description(Description), type(""), count(1), children(child_entries)
 			{
 				if (auto err = check_name())
 					throw err;
-				for (size_t ind = 0; ind < sizeof...(child_entries); ind++)
+				for (size_t ind = 0; ind < child_entries.size(); ind++)
 				{
 					children[ind].parent = name;
 					children[ind].parent_index = ind;
@@ -105,14 +110,7 @@ namespace BasicLog
 					children.push_back(c);
 				}
 
-				// sort the children
 				sort_children();
-				//				std::sort(children.begin(), children.end(),
-				//						  [](const auto &AA, const auto &BB) -> bool
-				//						  {
-				//								if (AA.data.empty()) return true;
-				//								if (BB.data.empty()) return false;
-				//								return AA.data[0].ptr < BB.data[0].ptr; });
 
 				// extract the sorted order
 				std::vector<size_t> order;
@@ -162,10 +160,10 @@ namespace BasicLog
 				return h;
 			}
 
-			static void sort_children(std::vector<LogEntry> &children)
+			static void sort_entries(std::vector<LogEntry> &entries)
 			{
 				// sort the children
-				std::sort(children.begin(), children.end(),
+				std::sort(entries.begin(), entries.end(),
 									[](const auto &AA, const auto &BB) -> bool
 									{ 
 								if (AA.data.empty()) return true;
@@ -175,7 +173,7 @@ namespace BasicLog
 
 			void sort_children(void)
 			{
-				sort_children(children);
+				sort_entries(children);
 			}
 
 			std::runtime_error error(const std::string_view msg) const
@@ -199,6 +197,11 @@ namespace BasicLog
 				return {};
 			}
 
+//			void append_child(LogEntry & child)
+//			{
+//				children.push_back(child);
+//			}
+
 			// for the header
 			std::string name;
 			std::string description;
@@ -213,30 +216,33 @@ namespace BasicLog
 			std::vector<LogEntry> children;
 		};
 
+		// how the logged data is written to the file
 		enum CompressionMethod
 		{
 			NONE,
 			CompressionMethodCount
 		};
 
-	public:
-		Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::convertible_to<const LogEntry> auto const... child_entries)
+		Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::vector<LogEntry> child_entries)
+				: MainEntry(Name, Description, child_entries)
 		{
-			LogEntry MainEntry(Name, Description, child_entries...);
+
 			MainEntry.parent = "";
 			MainEntry.parent_index = 0;
 			std::vector<LogEntry> AllEntries;
 			std::function<void(LogEntry)> flatten;
 			flatten = [&](LogEntry L)
 			{
+				auto children = L.children;
+				L.children.clear();
 				AllEntries.push_back(L);
-				for (auto &c : L.children)
+				for (auto &c : children)
 				{
 					flatten(c);
 				}
 			};
 			flatten(MainEntry);
-			LogEntry::sort_children(AllEntries);
+			LogEntry::sort_entries(AllEntries);
 			std::vector<DataChunk> AllChunks;
 			header.append("{\n");
 			// header.append("\"version\":\"").append(Version).append("\",\n");
@@ -269,63 +275,9 @@ namespace BasicLog
 			}
 		}
 
-		// Append(LogEntry)?
-
-		// a zero size container. cannot represent an array, just a container of things
-		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
-		{
-			return LogEntry(Name, Description, child_entries...);
-		}
-
-		// a fundamental
-		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, is_Fundamental auto const *const data, size_t Count, size_t Stride)
-		{
-			return LogEntry(Name, Description, data, Count);
-		}
-
-		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, is_Fundamental auto const *const data, size_t Count = 1)
-		{
-			return LogEntry(Name, Description, data, Count);
-		}
-
-		// a fundamental array
-		template <size_t Count>
-		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, is_Fundamental auto const (&arr)[Count])
-		{
-			return Entry(Name, Description, &arr[0], Count);
-		}
-
-		// a struct (user supplied spec)
-		template <is_Class B>
-		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const *const data, size_t Count, std::convertible_to<const StructMember<B>> auto const... child_entries)
-		{
-			return LogEntry(Name, Description, data, Count, child_entries...);
-		}
-
-		// a struct array
-		template <is_Class B, size_t Count>
-		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const (&arr)[Count], std::convertible_to<const StructMember<B>> auto const... child_entries)
-		{
-			return Entry(Name, Description, &arr[0], Count, child_entries...);
-		}
-
-		template <is_Fundamental A, is_Class B>
-		static const StructMember<B> Entry(const std::string_view Name, const std::string_view Description, A B::*Member, size_t Count = 1)
-		{
-			return [=](B const *const Data)
-			{
-				return LogEntry(Name, Description, &(Data->*Member), Count);
-			};
-		}
-
-		template <is_Fundamental A, is_Class B, size_t Count>
-		static const StructMember<B> Entry(const std::string_view Name, const std::string_view Description, A (B::*Member)[Count])
-		{
-			return [=](B const *const Data)
-			{
-				return LogEntry(Name, Description, &((Data->*Member)[0]), Count);
-			};
-		}
+		Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::convertible_to<const LogEntry> auto const... child_entries)
+		: Log(Name,Description,Compression,{child_entries...})
+		{}
 
 		size_t record(char *const dest, size_t size)
 		{
@@ -358,10 +310,70 @@ namespace BasicLog
 			return ind;
 		}
 
-		//	private:
+//		void append_child(LogEntry & child)
+//		{
+//			MainEntry.append_child(child);
+//		}
+
+	//private:
+		LogEntry MainEntry;
 		std::string header;
 		std::vector<DataChunk> data;
 		size_t data_size;
-		const std::string_view CompressionMethodName[CompressionMethodCount] = {"NONE"};
+		static constexpr std::string_view CompressionMethodName[CompressionMethodCount] = {"NONE"};
+
+		// static methods
+	public:
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
+		{
+			return LogEntry(Name, Description, {child_entries...});
+		}
+
+		// a fundamental
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, is_Fundamental auto const *const data, size_t Count = 1)
+		{
+			return LogEntry(Name, Description, data, Count);
+		}
+
+		// a fundamental array
+		template <size_t Count>
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, is_Fundamental auto const (&arr)[Count])
+		{
+			return Entry(Name, Description, &arr[0], Count);
+		}
+
+		// a struct
+		template <is_Class B>
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const *const data, size_t Count, std::convertible_to<const StructMember<B>> auto const... child_entries)
+		{
+			return LogEntry(Name, Description, data, Count, child_entries...);
+		}
+
+		// a struct array
+		template <is_Class B, size_t Count>
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, B const (&arr)[Count], std::convertible_to<const StructMember<B>> auto const... child_entries)
+		{
+			return Entry(Name, Description, &arr[0], Count, child_entries...);
+		}
+
+		// a struct member
+		template <is_Fundamental A, is_Class B>
+		static const StructMember<B> Entry(const std::string_view Name, const std::string_view Description, A B::*Member, size_t Count = 1)
+		{
+			return [=](B const *const Data)
+			{
+				return LogEntry(Name, Description, &(Data->*Member), Count);
+			};
+		}
+
+		// a struct member array
+		template <is_Fundamental A, is_Class B, size_t Count>
+		static const StructMember<B> Entry(const std::string_view Name, const std::string_view Description, A (B::*Member)[Count])
+		{
+			return [=](B const *const Data)
+			{
+				return LogEntry(Name, Description, &((Data->*Member)[0]), Count);
+			};
+		}
 	};
 }
