@@ -108,6 +108,14 @@ int main(void)
 				 Log::Entry("f", "data f", &f));
 	//	std::cout << L.MainEntry.header() << '\n';
 
+	std::vector<Log::LogEntry> test;
+	test.push_back(Log::Entry("a", "data a", a));
+	test.push_back(Log::Entry("b", "data b", &b));
+	test.push_back(Log::Entry("c", "data c", &c));
+	test.push_back(Log::Entry("d", "data d", &d));
+	test.push_back(Log::Entry("f", "data f", &f));
+	Log L3("dynamic","log",Log::CompressionMethod::NONE, test);
+
 	std::cout << "L2 data (manual):\n";
 	for (int i = 0; i < sizeof(c); i++)
 	{
@@ -131,6 +139,14 @@ int main(void)
 	}
 	std::cout << "\n\nL2 data (auto):\n";
 	for (auto &e : L2.data)
+	{
+		for (int i = 0; i < e.count; i++)
+		{
+			std::cout << (int)(e.ptr[i]) << ", ";
+		}
+	}
+	std::cout << "\n\nL3 data (auto):\n";
+	for (auto &e : L3.data)
 	{
 		for (int i = 0; i < e.count; i++)
 		{

@@ -310,11 +310,6 @@ namespace BasicLog
 			return ind;
 		}
 
-//		void append_child(LogEntry & child)
-//		{
-//			MainEntry.append_child(child);
-//		}
-
 	//private:
 		LogEntry MainEntry;
 		std::string header;
@@ -327,6 +322,11 @@ namespace BasicLog
 		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<const LogEntry> auto const... child_entries)
 		{
 			return LogEntry(Name, Description, {child_entries...});
+		}
+
+		static const LogEntry Entry(const std::string_view Name, const std::string_view Description, std::vector<LogEntry> child_entries)
+		{
+			return LogEntry(Name, Description, child_entries);
 		}
 
 		// a fundamental
