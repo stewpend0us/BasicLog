@@ -5,6 +5,7 @@
 #include <functional>
 #include <unordered_set>
 #include <optional>
+#include <fstream>
 
 #include <iostream>
 #include <iomanip>
@@ -340,7 +341,24 @@ namespace BasicLog
 			return size;
 		}
 
-//	private:
+		template <size_t Count>
+		size_t record(char const (&arr)[Count])
+		{
+			return record(&arr[0], Count);
+		}
+
+		size_t record(std::fstream &file)
+		{
+			size_t ind = 0;
+			for (auto &e : data)
+			{
+				file.write(e.ptr, e.count);
+				ind += e.count;
+			}
+			return ind;
+		}
+
+		//	private:
 		std::string header;
 		std::vector<DataChunk> data;
 		size_t data_size;
