@@ -67,7 +67,7 @@ int main(void)
 	//  std::cout << E2.header;
 	//  std::cout << E3.header;
 
-	Log L("test", "just a test log", Log::CompressionMethod::NONE,
+	Log L("test", "just a test log", Log::CompressionMethod::RAW,
 				// Entry("bad", "pointer type", &e), // doesn't compile
 				Log::Entry("a", "data a", a),
 				Log::Entry("b", "data b", &b),
@@ -100,7 +100,7 @@ int main(void)
 
 	std::cout << "\n====================\n\n\n";
 
-	Log L2("simple", "log", Log::CompressionMethod::NONE,
+	Log L2("simple", "log", Log::CompressionMethod::RAW,
 				 Log::Entry("a", "data a", a),
 				 Log::Entry("b", "data b", &b),
 				 Log::Entry("c", "data c", &c),
@@ -114,9 +114,10 @@ int main(void)
 	test.push_back(Log::Entry("c", "data c", &c));
 	test.push_back(Log::Entry("d", "data d", &d));
 	test.push_back(Log::Entry("f", "data f", &f));
-	Log L3("dynamic","log",Log::CompressionMethod::NONE, test);
+	Log L3("dynamic","log",Log::CompressionMethod::DIFF, test);
 
 	std::cout << "L2 data (manual):\n";
+	std::cout << "size " << (sizeof(a) + sizeof(b) + sizeof(c) + sizeof(d) + sizeof(f)) << '\n';
 	for (int i = 0; i < sizeof(c); i++)
 	{
 		std::cout << (int)(((char *)(&c))[i]) << ", ";
@@ -154,4 +155,12 @@ int main(void)
 		}
 	}
 	std::cout << "\n";
+
+
+	L3.set_log_path("/home/swadsworth/test/logs");
+	L3.record();
+	L3.start();
+	L3.record();
+	L3.stop();
+	L3.record();
 }

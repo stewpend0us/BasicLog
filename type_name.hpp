@@ -19,25 +19,25 @@ namespace detail
 
 // list of c++ name, my name
 #define X_LIST_BASICLOG_TYPES \
-	X(long double, float128)  \
-	X(double, float64)        \
-	X(float, float32)         \
-	X(bool, bool)             \
-	X(char, char)             \
-	X(int8_t, int8)           \
-	X(int16_t, int16)         \
-	X(int32_t, int32)         \
-	X(int64_t, int64)         \
-	X(uint8_t, uint8)         \
-	X(uint16_t, uint16)       \
-	X(uint32_t, uint32)       \
+	X(long double, float128)    \
+	X(double, float64)          \
+	X(float, float32)           \
+	X(bool, bool)               \
+	X(char, char)               \
+	X(int8_t, int8)             \
+	X(int16_t, int16)           \
+	X(int32_t, int32)           \
+	X(int64_t, int64)           \
+	X(uint8_t, uint8)           \
+	X(uint16_t, uint16)         \
+	X(uint32_t, uint32)         \
 	X(uint64_t, uint64)
 
 // for each type,name in the list define a specialization that looks like:
-#define X(type, name)                          \
-	template <>                                \
-	struct type_name<type>                     \
-	{                                          \
+#define X(type, name)                      \
+	template <>                              \
+	struct type_name<type>                   \
+	{                                        \
 		static constexpr char value[] = #name; \
 	};
 	X_LIST_BASICLOG_TYPES

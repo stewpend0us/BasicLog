@@ -2,10 +2,13 @@
 #include <string>
 #include <cstring>
 #include <vector>
+#include <numeric>
 #include <functional>
 #include <unordered_set>
 #include <optional>
 #include <fstream>
+#include <filesystem>
+#include <chrono>
 
 #include <iostream>
 #include <iomanip>
@@ -59,11 +62,11 @@ namespace BasicLog
 
 	public:
 		// something to be logged
-		struct Entry; // forward declare so we can define StructMemberFun
+		struct Entry; // forward declare so we can define StructMemberEntry
 
 		// the member of a struct to be logged
 		template <is_Class B>
-		using StructMemberFun = std::function<Entry(B const *const)>;
+		using StructMemberEntry = std::function<Entry(B const *const)>;
 
 		struct Entry
 		{
@@ -101,11 +104,11 @@ namespace BasicLog
 			}
 
 			template <is_Class B>
-			Entry(const std::string_view Name, const std::string_view Description, B const *const Ptr, size_t Count, std::convertible_to<const StructMemberFun<B>> auto const... child_entries)
+			Entry(const std::string_view Name, const std::string_view Description, B const *const Ptr, size_t Count, std::convertible_to<const StructMemberEntry<B>> auto const... child_entries)
 					: name(Name), description(Description), type(""), count(Count)
 			{
 				// dump these into an array for easier use
-				std::array<StructMemberFun<B>, sizeof...(child_entries)> SM = {child_entries...};
+				std::array<StructMemberEntry<B>, sizeof...(child_entries)> SM = {child_entries...};
 
 				// for the first element...
 				std::unordered_set<std::string_view> unique_child_names;
@@ -153,7 +156,7 @@ namespace BasicLog
 			}
 
 			template <is_Class B, size_t Count>
-			Entry(const std::string_view Name, const std::string_view Description, B const (&arr)[Count], std::convertible_to<const StructMemberFun<B>> auto const... child_entries)
+			Entry(const std::string_view Name, const std::string_view Description, B const (&arr)[Count], std::convertible_to<const StructMemberEntry<B>> auto const... child_entries)
 					: Entry(Name, Description, &arr[0], Count, child_entries...)
 			{
 			}
@@ -232,12 +235,14 @@ namespace BasicLog
 		// how the logged data is written to the file
 		enum CompressionMethod
 		{
-			NONE,
+			// remmeber to update "CompressionMethodName" and "CompressionMethodFunction" also!
+			RAW,
+			DIFF,
 			CompressionMethodCount
 		};
 
 		Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::vector<Entry> child_entries)
-				: MainEntry(Name, Description, child_entries)
+				: MainEntry(Name, Description, child_entries), selected_recorder(CompressionMethodFunction[Compression]), current_recorder(&Log::record_NULL)
 		{
 
 			MainEntry.parent = "";
@@ -258,27 +263,27 @@ namespace BasicLog
 			Entry::sort_entries(AllEntries);
 			std::vector<DataChunk> AllChunks;
 			header.append("{\n");
-			// header.append("\"version\":\"").append(Version).append("\",\n");
 			header.append("\"compression\":\"").append(CompressionMethodName[Compression]).append("\",\n");
 			header.append("\"data_header\":[\n");
 			bool first = true;
 			for (auto &c : AllEntries)
 			{
 				AllChunks.insert(AllChunks.end(), c.data.begin(), c.data.end());
-				data_size += c.count;
 				if (first)
-				{
 					first = false;
-				}
 				else
-				{
 					header.append(",\n");
-				}
 				header.append(c.header());
 			}
-			header.append("\n]\n}");
-
 			data = DataChunk::condense(AllChunks);
+			size_t total_size = std::accumulate(data.begin(), data.end(), 0, [](size_t sum, const DataChunk &E)
+																					{ return sum + E.count; });
+
+			previous_row = std::vector<char>(total_size, 0);
+
+			header.append("\n],\n");
+			header.append("\"row_size\":").append(std::to_string(total_size));
+			header.append("\n}");
 
 			// display stuff (for now)
 			std::cout << header << '\n';
@@ -293,50 +298,86 @@ namespace BasicLog
 		{
 		}
 
-		size_t record(char *const dest, size_t size)
+		void set_log_path(const std::string_view path)
 		{
-			if (size != data_size)
-				return 0;
-
-			size_t ind = 0;
-			for (auto &e : data)
-			{
-				memcpy(&dest[ind], e.ptr, e.count);
-				ind += e.count;
-			}
-			return size;
+			std::filesystem::create_directories(path); // may fail
+			root_directory = path;
 		}
 
-		template <size_t Count>
-		size_t record(char const (&arr)[Count])
+		void start(std::chrono::system_clock::time_point start_time = std::chrono::system_clock::now()) // system clock is 'Unix time' in c++20
 		{
-			return record(&arr[0], Count);
+			if (root_directory.empty())
+				throw MainEntry.error("log path not set. call \"set_log_path\" before starting the log.");
+			// create the new file
+			{
+				time_t now = std::chrono::system_clock::to_time_t(start_time);
+				struct tm tm;
+				localtime_r(&now, &tm);
+				std::stringstream ss;
+				ss << std::put_time(&tm, "%Y%m%d_%H%M%S%z") << "_" << MainEntry.name << ".cap";
+				auto file_path = root_directory / ss.str();
+				log_file.open(file_path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+				if (!log_file)
+					throw MainEntry.error(std::string("failed to create log file: ").append(file_path));
+			}
+
+			log_file << header << '\0';						// add the header followed by 0
+			current_recorder = selected_recorder; // update the recorder function
+			// init recorder states
+			std::fill(previous_row.begin(), previous_row.end(), 0);
 		}
 
-		size_t record(std::fstream &file)
+		void stop(void)
 		{
-			size_t ind = 0;
-			for (auto &e : data)
-			{
-				file.write(e.ptr, e.count);
-				ind += e.count;
-			}
-			return ind;
+			current_recorder = &Log::record_NULL;
+			log_file.close();
+		}
+
+		void record()
+		{
+			(this->*current_recorder)();
 		}
 
 		// private:
-		Entry MainEntry;
-		std::string header;
-		std::vector<DataChunk> data;
-		size_t data_size;
-		static constexpr std::string_view CompressionMethodName[CompressionMethodCount] = {"NONE"};
+		void record_NULL(void) {}
+
+		void record_RAW(void)
+		{
+			std::cout << "raw record\n";
+			for (auto &e : data)
+			{
+				log_file.write(e.ptr, e.count);
+			}
+		}
+
+		std::vector<char> previous_row;
+		void record_DIFF(void)
+		{
+			//TODO implement this
+			log_file.write(previous_row.data(), previous_row.size());
+		}
+
+		// list of compression method names (to be included in the log header)
+		static constexpr std::string_view CompressionMethodName[CompressionMethodCount] = {"RAW", "DIFF"};
+
+		// list of compression method member functions (to be used to actually record the data)
+		typedef void (Log::*RecordFun)(void);
+		static constexpr RecordFun CompressionMethodFunction[CompressionMethodCount] = {&Log::record_RAW, &Log::record_DIFF};
+
+		Entry MainEntry;						 // each log has a top level entry. this is it.
+		std::string header;					 // this logs header
+		std::vector<DataChunk> data; // this logs data
+		RecordFun selected_recorder; // the selected record method
+		RecordFun current_recorder;	 // the recorder that's currently being used (either null or selected)
+
+		std::filesystem::path root_directory;
+		std::fstream log_file;
 
 		// static methods
 	public:
-
 		// a struct member
 		template <is_Fundamental A, is_Class B>
-		static const StructMemberFun<B> StructMember(const std::string_view Name, const std::string_view Description, A B::*Member, size_t Count = 1)
+		static const StructMemberEntry<B> StructMember(const std::string_view Name, const std::string_view Description, A B::*Member, size_t Count = 1)
 		{
 			return [=](B const *const Data)
 			{
@@ -346,7 +387,7 @@ namespace BasicLog
 
 		// a struct member array
 		template <is_Fundamental A, is_Class B, size_t Count>
-		static const StructMemberFun<B> StructMember(const std::string_view Name, const std::string_view Description, A (B::*Member)[Count])
+		static const StructMemberEntry<B> StructMember(const std::string_view Name, const std::string_view Description, A (B::*Member)[Count])
 		{
 			return [=](B const *const Data)
 			{
