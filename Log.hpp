@@ -5,7 +5,6 @@
 #include <numeric>
 #include <functional>
 #include <unordered_set>
-#include <optional>
 #include <fstream>
 #include <filesystem>
 #include <chrono>
@@ -74,8 +73,8 @@ namespace BasicLog
 			Entry(const std::string_view Name, const std::string_view Description, std::vector<Entry> child_entries)
 					: name(Name), description(Description), type(""), count(1), children(child_entries)
 			{
-				if (auto err = check_name())
-					throw err;
+				check_name();
+				check_child_names();
 				for (size_t ind = 0; ind < child_entries.size(); ind++)
 				{
 					children[ind].parent = name;
@@ -92,8 +91,7 @@ namespace BasicLog
 			Entry(const std::string_view Name, const std::string_view Description, A const *const Ptr, size_t Count = 1)
 					: name(Name), description(Description), type(type_name_v<A>), count(Count)
 			{
-				if (auto err = check_name())
-					throw err;
+				check_name();
 				data.push_back(DataChunk{(char *)Ptr, sizeof(A) * Count});
 			}
 
@@ -111,19 +109,16 @@ namespace BasicLog
 				std::array<StructMemberEntry<B>, sizeof...(child_entries)> SM = {child_entries...};
 
 				// for the first element...
-				std::unordered_set<std::string_view> unique_child_names;
 				for (size_t ind = 0; ind < sizeof...(child_entries); ind++)
 				{
 					auto c = SM[ind](Ptr);
-					// check that the child names are unique
-					if (!unique_child_names.insert(c.name).second)
-						throw error("already contains a child named \"" + c.name + "\"");
 					// update the child with the parents info
 					c.parent = name;
 					c.parent_index = ind; // order in which they were encoutered
 					// add this child to the list
 					children.push_back(c);
 				}
+				check_child_names();
 
 				sort_children();
 
@@ -202,20 +197,30 @@ namespace BasicLog
 				return std::runtime_error(std::string("\"").append(name).append("\", \"").append(description).append("\": ").append(msg));
 			}
 
-			std::optional<std::runtime_error> check_name() const
+			void check_name(void) const
 			{
 				static const std::string ok1 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 				static const std::string ok2 = "_0123456789";
 				if (name.size() == 0)
-					return error("name must be at least one character long");
+					throw error("name must be at least one character long");
 				if (ok1.find(name[0]) == std::string::npos)
-					return error("name must start with a letter");
+					throw error("name must start with a letter");
 				for (size_t i = 1; i < name.size(); i++)
 				{
 					if (ok2.find(name[i]) == std::string::npos && ok1.find(name[i]) == std::string::npos)
-						return error(std::string("name must not contain '").append(name.substr(i, 1)).append("' only letters, numbers, and _"));
+						throw error(std::string("name must not contain '").append(name.substr(i, 1)).append("' only letters, numbers, and _"));
 				}
-				return {};
+			}
+
+			void check_child_names(void) const
+			{
+				// check that the child names are unique
+				std::unordered_set<std::string_view> unique_child_names;
+				for (size_t ind = 0; ind < children.size(); ind++)
+				{
+					if (!unique_child_names.insert(children[ind].name).second)
+						throw error("already contains a child named \"" + children[ind].name + "\"");
+				}
 			}
 
 			// for the header
@@ -298,28 +303,20 @@ namespace BasicLog
 		{
 		}
 
-		void set_log_path(const std::string_view path)
+		std::string_view name() const
 		{
-			std::filesystem::create_directories(path); // may fail
-			root_directory = path;
+			return MainEntry.name;
 		}
 
-		void start(std::chrono::system_clock::time_point start_time = std::chrono::system_clock::now()) // system clock is 'Unix time' in c++20
+		void start(std::filesystem::path directory)
 		{
-			if (root_directory.empty())
-				throw MainEntry.error("log path not set. call \"set_log_path\" before starting the log.");
+			if (directory.empty())
+				throw MainEntry.error("cannot begin logging to an empty directory");
 			// create the new file
-			{
-				time_t now = std::chrono::system_clock::to_time_t(start_time);
-				struct tm tm;
-				localtime_r(&now, &tm);
-				std::stringstream ss;
-				ss << std::put_time(&tm, "%Y%m%d_%H%M%S%z") << "_" << MainEntry.name << ".cap";
-				auto file_path = root_directory / ss.str();
-				log_file.open(file_path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
-				if (!log_file)
-					throw MainEntry.error(std::string("failed to create log file: ").append(file_path));
-			}
+			auto file_path = directory / (MainEntry.name + ".cap");
+			log_file.open(file_path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+			if (!log_file)
+				throw MainEntry.error(std::string("failed to create log file: ").append(file_path));
 
 			log_file << header << '\0';						// add the header followed by 0
 			current_recorder = selected_recorder; // update the recorder function
@@ -333,7 +330,7 @@ namespace BasicLog
 			log_file.close();
 		}
 
-		void record()
+		void record(void)
 		{
 			(this->*current_recorder)();
 		}
@@ -353,7 +350,7 @@ namespace BasicLog
 		std::vector<char> previous_row;
 		void record_DIFF(void)
 		{
-			//TODO implement this
+			// TODO implement this
 			log_file.write(previous_row.data(), previous_row.size());
 		}
 
@@ -370,7 +367,6 @@ namespace BasicLog
 		RecordFun selected_recorder; // the selected record method
 		RecordFun current_recorder;	 // the recorder that's currently being used (either null or selected)
 
-		std::filesystem::path root_directory;
 		std::fstream log_file;
 
 		// static methods
@@ -394,5 +390,66 @@ namespace BasicLog
 				return Entry(Name, Description, &((Data->*Member)[0]), Count);
 			};
 		}
+
+		static std::string unix_time_formatted(void)
+		{
+			time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()); // system clock is 'Unix time' in c++20
+			struct tm tm;
+			localtime_r(&now, &tm);
+			std::stringstream ss;
+			ss << std::put_time(&tm, "%Y%m%d_%H%M%S%z");
+			return ss.str();
+		}
+
+		static std::chrono::system_clock::duration unix_time_now(void)
+		{
+			return std::chrono::system_clock::now().time_since_epoch();
+		}
+
+		class Manager
+		{
+			std::filesystem::path root_directory;
+			std::vector<Log> logs;
+
+			void check_child_names(void) const
+			{
+				// check that the child names are unique
+				std::unordered_set<std::string_view> unique_names;
+				for (size_t ind = 0; ind < logs.size(); ind++)
+				{
+					if (!unique_names.insert(logs[ind].name()).second)
+						throw std::runtime_error(std::string("already contains a log named \"").append(logs[ind].name()).append("\""));
+				}
+			}
+
+		public:
+			Manager(std::filesystem::path &root, std::convertible_to<const Log> auto... Logs)
+					: logs({Logs...})
+			{
+				check_child_names();
+			}
+
+			void set_root_directory(const std::string_view path)
+			{
+				std::filesystem::create_directories(path); // may fail
+				root_directory = path;
+			}
+
+			void start(void)
+			{
+				std::filesystem::path dir = root_directory / unix_time_formatted();
+				std::for_each(logs.begin(), logs.end(), [&](Log &L)
+											{ L.start(dir); });
+			}
+
+			void stop(void)
+			{
+				std::for_each(logs.begin(), logs.end(), [](Log &L)
+											{ L.stop(); });
+			}
+
+			// NOTE: not going to expose a Manager level "record" method each log
+			// should be recorded at an appropriate rate based on the application
+		};
 	};
 }

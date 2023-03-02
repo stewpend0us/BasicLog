@@ -157,9 +157,8 @@ int main(void)
 	std::cout << "\n";
 
 
-	L3.set_log_path("/home/swadsworth/test/logs");
 	L3.record();
-	L3.start();
+	L3.start("/home/swadsworth/test/logs");
 	L3.record();
 	L3.stop();
 	L3.record();
