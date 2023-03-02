@@ -29,6 +29,7 @@ namespace BasicLog
 
 	private:
 		// a location/size of memory (to be logged)
+		// TODO replace this with "span" ?
 		struct DataChunk
 		{
 			const char *ptr;
@@ -249,7 +250,6 @@ namespace BasicLog
 		Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::vector<Entry> child_entries)
 				: MainEntry(Name, Description, child_entries), selected_recorder(CompressionMethodFunction[Compression]), current_recorder(&Log::record_NULL)
 		{
-
 			MainEntry.parent = "";
 			MainEntry.parent_index = 0;
 			std::vector<Entry> AllEntries;
@@ -314,7 +314,7 @@ namespace BasicLog
 				throw MainEntry.error("cannot begin logging to an empty directory");
 			// create the new file
 			auto file_path = directory / (MainEntry.name + ".cap");
-			log_file.open(file_path, std::ios_base::out | std::ios_base::binary | std::ios_base::trunc);
+			log_file.open(file_path, std::ios_base::binary | std::ios_base::trunc);
 			if (!log_file)
 				throw MainEntry.error(std::string("failed to create log file: ").append(file_path));
 
@@ -340,7 +340,6 @@ namespace BasicLog
 
 		void record_RAW(void)
 		{
-			std::cout << "raw record\n";
 			for (auto &e : data)
 			{
 				log_file.write(e.ptr, e.count);
@@ -351,6 +350,7 @@ namespace BasicLog
 		void record_DIFF(void)
 		{
 			// TODO implement this
+			std::cout << "diff recorder is not implemented yet\n";
 			log_file.write(previous_row.data(), previous_row.size());
 		}
 
@@ -367,7 +367,7 @@ namespace BasicLog
 		RecordFun selected_recorder; // the selected record method
 		RecordFun current_recorder;	 // the recorder that's currently being used (either null or selected)
 
-		std::fstream log_file;
+		std::ofstream log_file;
 
 		// static methods
 	public:
@@ -409,27 +409,27 @@ namespace BasicLog
 		class Manager
 		{
 			std::filesystem::path root_directory;
-			std::vector<Log> logs;
+			std::vector<Log *> logs;
 
 			void check_child_names(void) const
 			{
 				// check that the child names are unique
 				std::unordered_set<std::string_view> unique_names;
-				for (size_t ind = 0; ind < logs.size(); ind++)
-				{
-					if (!unique_names.insert(logs[ind].name()).second)
-						throw std::runtime_error(std::string("already contains a log named \"").append(logs[ind].name()).append("\""));
-				}
+				std::for_each(logs.begin(), logs.end(), [&](const Log *L)
+											{
+					if (!unique_names.insert(L->name()).second)
+						throw std::runtime_error(std::string("Log::Manager instance already contains a log named \"").append(L->name()).append("\"")); });
 			}
 
 		public:
-			Manager(std::filesystem::path &root, std::convertible_to<const Log> auto... Logs)
+			Manager(std::filesystem::path root, std::convertible_to<const Log *> auto... Logs)
 					: logs({Logs...})
 			{
 				check_child_names();
+				set_root_directory(root);
 			}
 
-			void set_root_directory(const std::string_view path)
+			void set_root_directory(const std::filesystem::path path)
 			{
 				std::filesystem::create_directories(path); // may fail
 				root_directory = path;
@@ -438,14 +438,15 @@ namespace BasicLog
 			void start(void)
 			{
 				std::filesystem::path dir = root_directory / unix_time_formatted();
-				std::for_each(logs.begin(), logs.end(), [&](Log &L)
-											{ L.start(dir); });
+				std::filesystem::create_directories(dir);
+				std::for_each(logs.begin(), logs.end(), [&](Log *L)
+											{ L->start(dir); });
 			}
 
 			void stop(void)
 			{
-				std::for_each(logs.begin(), logs.end(), [](Log &L)
-											{ L.stop(); });
+				std::for_each(logs.begin(), logs.end(), [](Log *L)
+											{ L->stop(); });
 			}
 
 			// NOTE: not going to expose a Manager level "record" method each log

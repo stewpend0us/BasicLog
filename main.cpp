@@ -1,5 +1,6 @@
 #include <iostream>
 #include "Log.hpp"
+#include <thread>
 
 using namespace BasicLog;
 
@@ -114,7 +115,7 @@ int main(void)
 	test.push_back(Log::Entry("c", "data c", &c));
 	test.push_back(Log::Entry("d", "data d", &d));
 	test.push_back(Log::Entry("f", "data f", &f));
-	Log L3("dynamic","log",Log::CompressionMethod::DIFF, test);
+	Log L3("dynamic", "log", Log::CompressionMethod::DIFF, test);
 
 	std::cout << "L2 data (manual):\n";
 	std::cout << "size " << (sizeof(a) + sizeof(b) + sizeof(c) + sizeof(d) + sizeof(f)) << '\n';
@@ -154,12 +155,21 @@ int main(void)
 			std::cout << (int)(e.ptr[i]) << ", ";
 		}
 	}
-	std::cout << "\n";
+	std::cout << "\nderp\n";
 
-
+	Log::Manager M("/home/swadsworth/test/logs", &L, &L2, &L3);
+	M.start();
+	L.record();
+	L2.record();
 	L3.record();
-	L3.start("/home/swadsworth/test/logs");
+	M.stop();
+	L.record();
+	L2.record();
 	L3.record();
-	L3.stop();
+	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+	M.start();
+	L.record();
+	L2.record();
 	L3.record();
+	M.stop();
 }
