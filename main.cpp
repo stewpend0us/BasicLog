@@ -58,7 +58,7 @@ int main(void)
 	int8_t c = 2;
 	bool d = true;
 	bool *e = &d;
-	char f = 5;
+	uint16_t f = 65535;
 
 	// static auto E1 = Log::Entry("a","b", &b,3);
 	//   static auto E2 = Log::Entry(aa, "dynamic", &a[0], 6);
@@ -101,7 +101,7 @@ int main(void)
 
 	std::cout << "\n====================\n\n\n";
 
-	Log L2("simple", "log", Log::CompressionMethod::RAW,
+	Log L2("simple", "log ", Log::CompressionMethod::RAW,
 				 Log::Entry("a", "data a", a),
 				 Log::Entry("b", "data b", &b),
 				 Log::Entry("c", "data c", &c),
@@ -161,15 +161,17 @@ int main(void)
 	M.start();
 	L.record();
 	L2.record();
+	L2.record();
+	L2.record();
 	L3.record();
 	M.stop();
 	L.record();
 	L2.record();
 	L3.record();
-	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-	M.start();
-	L.record();
-	L2.record();
-	L3.record();
-	M.stop();
+//	std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+//	M.start();
+//	L.record();
+//	L2.record();
+//	L3.record();
+//	M.stop();
 }

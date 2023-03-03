@@ -4,7 +4,7 @@
 
 namespace detail
 {
-	static_assert(sizeof(long double) == 128 / 8 && "assumed long double size");
+//	static_assert(sizeof(long double) == 128 / 8 && "assumed long double size");
 	static_assert(sizeof(double) == 64 / 8 && "assumed double size");
 	static_assert(sizeof(float) == 32 / 8 && "assumed float size");
 	static_assert(sizeof(bool) == 8 / 8 && "assumed bool size");
@@ -19,7 +19,6 @@ namespace detail
 
 // list of c++ name, my name
 #define X_LIST_BASICLOG_TYPES \
-	X(long double, float128)    \
 	X(double, float64)          \
 	X(float, float32)           \
 	X(bool, bool)               \

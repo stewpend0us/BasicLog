@@ -11,3 +11,4 @@
 # track code files
 !*.hpp
 !*.cpp
+!*.m

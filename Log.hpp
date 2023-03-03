@@ -243,7 +243,7 @@ namespace BasicLog
 		{
 			// remmeber to update "CompressionMethodName" and "CompressionMethodFunction" also!
 			RAW,
-			DIFF,
+			DIFF1,
 			CompressionMethodCount
 		};
 
@@ -327,6 +327,7 @@ namespace BasicLog
 		void stop(void)
 		{
 			current_recorder = &Log::record_NULL;
+			log_file.flush();
 			log_file.close();
 		}
 
@@ -347,7 +348,7 @@ namespace BasicLog
 		}
 
 		std::vector<char> previous_row;
-		void record_DIFF(void)
+		void record_DIFF1(void)
 		{
 			// TODO implement this
 			std::cout << "diff recorder is not implemented yet\n";
@@ -355,11 +356,11 @@ namespace BasicLog
 		}
 
 		// list of compression method names (to be included in the log header)
-		static constexpr std::string_view CompressionMethodName[CompressionMethodCount] = {"RAW", "DIFF"};
+		static constexpr std::string_view CompressionMethodName[CompressionMethodCount] = {"RAW", "DIFF1"};
 
 		// list of compression method member functions (to be used to actually record the data)
 		typedef void (Log::*RecordFun)(void);
-		static constexpr RecordFun CompressionMethodFunction[CompressionMethodCount] = {&Log::record_RAW, &Log::record_DIFF};
+		static constexpr RecordFun CompressionMethodFunction[CompressionMethodCount] = {&Log::record_RAW, &Log::record_DIFF1};
 
 		Entry MainEntry;						 // each log has a top level entry. this is it.
 		std::string header;					 // this logs header
