@@ -80,7 +80,7 @@ namespace BasicLog
       Entry() { }
 
       Entry(const std::string_view Name, const std::string_view Description, std::vector<Entry> child_entries)
-        : name(Name), description(Description), type(""), count(1), children(child_entries)
+        : name(Name), description(Description), type(""), count(1), children(child_entries), is_divisible(true)
       {
         check_name();
         check_child_names();
@@ -97,7 +97,7 @@ namespace BasicLog
 
       template <is_Fundamental A>
       Entry(const std::string_view Name, const std::string_view Description, A const* const Ptr, size_t Count = 1)
-        : name(Name), description(Description), type(type_name_v<A>), count(Count)
+        : name(Name), description(Description), type(type_name_v<A>), count(Count), is_divisible(true)
       {
         check_name();
         data.push_back(DataChunk{ (char*)Ptr, sizeof(A) * Count });
@@ -124,7 +124,7 @@ namespace BasicLog
 
       template <is_Class B>
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, size_t Count, const std::vector<StructMemberEntry<B>> child_entries)
-        : name(Name), description(Description), type(""), count(Count)
+        : name(Name), description(Description), type(""), count(Count), is_divisible(false)
       {
         // for the first element in the 'array' aka Ptr[0]...
         for (size_t ind = 0; ind < child_entries.size(); ind++)
@@ -150,9 +150,9 @@ namespace BasicLog
         for (auto& c : children)
         {
           data.insert(data.end(), c.data.begin(), c.data.end());
-          sub_headers.push_back(c.header());
+          //sub_headers.push_back(c.header());
         }
-        children.clear(); // the parent has completely consumed the children at this point
+        //children.clear(); // the parent has completely consumed the children at this point
 
         // for the remaning elements we just need to add their data to the list
         for (size_t i = 1; i < Count; i++)
@@ -197,13 +197,15 @@ namespace BasicLog
         static constexpr std::string_view name = "\"name\":";
         static constexpr std::string_view desc = "\"desc\":";
         static constexpr std::string_view type = "\"type\":";
-        static constexpr std::string_view parent = "\"parent\":";
         static constexpr std::string_view ind = "\"ind\":";
         static constexpr std::string_view count = "\"count\":";
         //{"name":"{name}","desc":"{description}","type":"{type}","count":{count},"parent":"{parent_name}","ind":{parent_index}}
-        auto h = std::string(l).append(name).append(q).append(this->name).append(qc).append(desc).append(q).append(this->description).append(qc).append(type).append(q).append(this->type).append(qc).append(count).append(std::to_string(this->count)).append(c).append(parent).append(q).append(this->parent).append(qc).append(ind).append(std::to_string(this->parent_index)).append(r);
-        for (auto& h2 : sub_headers)
-          h.append(",\n\t").append(h2);
+        auto h = std::string(l).append(name).append(q).append(this->name).append(qc).append(desc).append(q).append(this->description).append(qc).append(type).append(q).append(this->type).append(qc).append(count).append(std::to_string(this->count)).append(c).append(ind).append(std::to_string(this->parent_index)).append(r);
+        if (!is_divisible)
+        {
+          for (auto& h2 : children)
+            h.append(",\n").append(h2.header());
+        }
         return h;
       }
 
@@ -260,11 +262,12 @@ namespace BasicLog
       size_t count;
       std::string parent;
       size_t parent_index;
-      std::vector<std::string> sub_headers;
+      //std::vector<std::string> sub_headers;
 
       // for the data
       std::vector<DataChunk> data;
       std::vector<Entry> children;
+      bool is_divisible = true;
     };
 
     // how the logged data is written to the file
@@ -284,14 +287,22 @@ namespace BasicLog
       MainEntry.parent = "";
       MainEntry.parent_index = 0;
       std::vector<Entry> AllEntries;
-      std::function<void(Entry&)> flatten;
-      flatten = [&](Entry &L) {
-        auto children = L.children;
-        L.children.clear();
+      std::function<void(Entry)> flatten;
+      flatten = [&](Entry L) {
+
+//        auto children = L.children;
+        for (auto& c : L.children)
+        {
+          c.name = L.name + "." + c.name;
+        }
+        //L.children.clear();
         AllEntries.push_back(L);
-        for (auto& c : children)
+        if (L.is_divisible)
+        {
+        for (auto& c : L.children)
         {
           flatten(c);
+        }
         }
       };
       flatten(MainEntry);
