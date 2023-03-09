@@ -42,23 +42,26 @@ namespace BasicLog
       static std::vector<DataChunk> condense(std::vector<DataChunk> const& chunk)
       {
         std::vector<DataChunk> result;
-        DataChunk L0{ chunk[0] }; // may modify this one so make a copy
-        size_t i = 1;
-        while (i < chunk.size())
+        if (!chunk.empty())
         {
-          DataChunk const* L1 = &chunk[i];
-          if (L0.ptr + L0.count == L1->ptr)
+          DataChunk L0{ chunk[0] }; // may modify this one so make a copy
+          size_t i = 1;
+          while (i < chunk.size())
           {
-            L0.count += L1->count;
+            DataChunk const* L1 = &chunk[i];
+            if (L0.ptr + L0.count == L1->ptr)
+            {
+              L0.count += L1->count;
+            }
+            else
+            {
+              result.push_back(L0);
+              L0 = *L1;
+            }
+            i++;
           }
-          else
-          {
-            result.push_back(L0);
-            L0 = *L1;
-          }
-          i++;
+          result.push_back(L0);
         }
-        result.push_back(L0);
         return result;
       }
     };
@@ -168,7 +171,6 @@ namespace BasicLog
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, const std::vector<StructMemberEntry<B>> child_entries)
         : Entry(Name, Description, Ptr, 1, child_entries)
       { }
-
 
       template <is_Class B>
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, size_t Count, std::convertible_to<const StructMemberEntry<B>> auto const... child_entries)
@@ -282,8 +284,8 @@ namespace BasicLog
       MainEntry.parent = "";
       MainEntry.parent_index = 0;
       std::vector<Entry> AllEntries;
-      std::function<void(Entry)> flatten;
-      flatten = [&](Entry L) {
+      std::function<void(Entry&)> flatten;
+      flatten = [&](Entry &L) {
         auto children = L.children;
         L.children.clear();
         AllEntries.push_back(L);
@@ -454,6 +456,7 @@ namespace BasicLog
       }
 
     public:
+      Manager(){}
       Manager(std::filesystem::path root, std::convertible_to<const Log*> auto... Logs)
         : logs({ Logs... })
       {
