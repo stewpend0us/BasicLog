@@ -143,7 +143,7 @@ namespace BasicLog
           children.push_back(c);
           type_size += c.type_size;
         }
-        type = to_string(type_size);
+        type = std::to_string(type_size);
 
         check_child_names();
         sort_children();
@@ -172,8 +172,6 @@ namespace BasicLog
           }
         }
         data = DataChunk::condense(data);
-        if (data.size() != 1)
-          throw error("data is not contiguos but it should be");
       }
 
       // struct
@@ -406,9 +404,46 @@ namespace BasicLog
     std::vector<char> previous_row;
     void record_DIFF1(void)
     {
-      // TODO implement this
-      std::cout << "diff recorder is not implemented yet\n";
-      log_file.write(previous_row.data(), previous_row.size());
+      static const size_t num_bytes = previous_row.size();
+      static const size_t num_bits = num_bytes / 8 + (num_bytes % 8 > 0); // number of bytes we need to get at least one bit per byte
+      static std::vector<char> prefix(num_bits, 0);
+      static std::vector<char> delta(num_bytes, 0);
+      static std::vector<char> row(num_bytes, 0);
+
+
+      // copy all the data to be logged into a buffer
+      size_t pos = 0;
+      for (auto& e : data)
+      {
+        for (size_t i = 0; i < e.count; i++)
+        {
+          row[pos++] = e.ptr[i];
+        }
+      }
+
+      // compute the delta
+      for (size_t i = 0; i < num_bytes; i++)
+        delta[i] = row[i] - previous_row[i];
+
+      // save the previous row
+      previous_row = row;
+
+      // compute the prefix and data to be logged
+      std::fill(prefix.begin(), prefix.end(), 0); // zero the prefix
+      std::vector<char> bytes_to_log;
+      for (size_t i = 0; i < num_bytes; i++)
+      {
+        if (delta[i] == 0)
+          continue;
+        size_t h_ind = i/8;
+        int b_ind = i%8;
+        prefix[h_ind] |= 1U << b_ind; // set the bit
+        bytes_to_log.push_back(delta[i]); // insert the data
+      }
+
+      // finally write the prefix and data
+      log_file.write(prefix.data(), prefix.size());
+      log_file.write(bytes_to_log.data(), bytes_to_log.size());
     }
 
     // list of compression method names (to be included in the log header)
