@@ -79,30 +79,34 @@ namespace BasicLog
 
       Entry() { }
 
+      // simple container
       Entry(const std::string_view Name, const std::string_view Description, std::vector<Entry> child_entries)
-        : name(Name), description(Description), type(""), count(1), children(child_entries), is_divisible(true)
+        : name(Name), description(Description), type(""), type_size(0), count(1), children(child_entries), is_contiguous(false)
       {
         check_name();
         check_child_names();
         for (size_t ind = 0; ind < child_entries.size(); ind++)
         {
-          children[ind].parent = name;
           children[ind].parent_index = ind;
+          type_size += children[ind].type_size;
         }
       }
 
+      // simple container
       Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<Entry> auto const... child_entries)
         : Entry(Name, Description, std::vector<Entry>({ child_entries... }))
       { }
 
+      // fundamental or array
       template <is_Fundamental A>
       Entry(const std::string_view Name, const std::string_view Description, A const* const Ptr, size_t Count = 1)
-        : name(Name), description(Description), type(type_name_v<A>), count(Count), is_divisible(true)
+        : name(Name), description(Description), type(type_name_v<A>), type_size(sizeof(A)), count(Count), is_contiguous(true)
       {
         check_name();
         data.push_back(DataChunk{ (char*)Ptr, sizeof(A) * Count });
       }
 
+      // allow Enum types
       template <is_Enum A>
       Entry(const std::string_view Name, const std::string_view Description, A const* const Ptr, size_t Count = 1)
         : Entry(Name, Description, (typename std::underlying_type<A>::type const* const)Ptr, Count)
@@ -110,11 +114,13 @@ namespace BasicLog
         // this cast is "not allowed" in c++. if you do a static_cast instead of a () cast the compiler barfs.
       }
 
+      // fundamental array
       template <is_Fundamental A, size_t Count>
       Entry(const std::string_view Name, const std::string_view Description, A const (&arr)[Count])
         : Entry(Name, Description, &arr[0], Count)
       { }
 
+      // Enum array
       template <is_Enum A, size_t Count>
       Entry(const std::string_view Name, const std::string_view Description, A const (&arr)[Count])
         : Entry(Name, Description, (typename std::underlying_type<A>::type const* const)&arr[0], Count)
@@ -122,22 +128,24 @@ namespace BasicLog
         // this cast is "not allowed" in c++. if you do a static_cast instead of a () cast the compiler barfs.
       }
 
+      // struct or array
       template <is_Class B>
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, size_t Count, const std::vector<StructMemberEntry<B>> child_entries)
-        : name(Name), description(Description), type(""), count(Count), is_divisible(false)
+        : name(Name), description(Description), type_size(0), count(Count), is_contiguous(true)
       {
         // for the first element in the 'array' aka Ptr[0]...
         for (size_t ind = 0; ind < child_entries.size(); ind++)
         {
           auto c = child_entries[ind](Ptr);
           // update the child with the parents info
-          c.parent = name;
           c.parent_index = ind; // order in which they were encoutered
           // add this child to the list
           children.push_back(c);
+          type_size += c.type_size;
         }
-        check_child_names();
+        type = to_string(type_size);
 
+        check_child_names();
         sort_children();
 
         // extract the sorted order
@@ -163,25 +171,30 @@ namespace BasicLog
             data.insert(data.end(), c.data.begin(), c.data.end());
           }
         }
-
         data = DataChunk::condense(data);
+        if (data.size() != 1)
+          throw error("data is not contiguos but it should be");
       }
 
+      // struct
       template <is_Class B>
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, const std::vector<StructMemberEntry<B>> child_entries)
         : Entry(Name, Description, Ptr, 1, child_entries)
       { }
 
+      // struct or array
       template <is_Class B>
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, size_t Count, std::convertible_to<const StructMemberEntry<B>> auto const... child_entries)
         : Entry(Name, Description, Ptr, Count, { child_entries... })
       { }
 
+      // struct array
       template <is_Class B, size_t Count>
       Entry(const std::string_view Name, const std::string_view Description, B const (&arr)[Count], std::convertible_to<const StructMemberEntry<B>> auto const... child_entries)
         : Entry(Name, Description, &arr[0], Count, child_entries...)
       { }
 
+      // struct
       template <is_Class B>
       Entry(const std::string_view Name, const std::string_view Description, B const* const Ptr, std::convertible_to<const StructMemberEntry<B>> auto const... child_entries)
         : Entry(Name, Description, Ptr, 1, child_entries...)
@@ -201,7 +214,7 @@ namespace BasicLog
         static constexpr std::string_view count = "\"count\":";
         //{"name":"{name}","desc":"{description}","type":"{type}","count":{count},"parent":"{parent_name}","ind":{parent_index}}
         auto h = std::string(l).append(name).append(q).append(this->name).append(qc).append(desc).append(q).append(this->description).append(qc).append(type).append(q).append(this->type).append(qc).append(count).append(std::to_string(this->count)).append(c).append(ind).append(std::to_string(this->parent_index)).append(r);
-        if (!is_divisible)
+        if (is_contiguous)
         {
           for (auto& h2 : children)
             h.append(",\n").append(h2.header());
@@ -258,16 +271,15 @@ namespace BasicLog
       // for the header
       std::string name;
       std::string description;
-      std::string_view type;
+      std::string type;
+      size_t type_size;
       size_t count;
-      std::string parent;
       size_t parent_index;
-      //std::vector<std::string> sub_headers;
 
       // for the data
       std::vector<DataChunk> data;
       std::vector<Entry> children;
-      bool is_divisible = true;
+      bool is_contiguous;
     };
 
     // how the logged data is written to the file
@@ -284,7 +296,6 @@ namespace BasicLog
     Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::vector<Entry> child_entries)
       : MainEntry(Name, Description, child_entries), selected_recorder(CompressionMethodFunction[Compression]), current_recorder(&Log::record_NULL)
     {
-      MainEntry.parent = "";
       MainEntry.parent_index = 0;
       std::vector<Entry> AllEntries;
       std::function<void(Entry)> flatten;
@@ -297,12 +308,12 @@ namespace BasicLog
         }
         //L.children.clear();
         AllEntries.push_back(L);
-        if (L.is_divisible)
+        if (!L.is_contiguous)
         {
-        for (auto& c : L.children)
-        {
-          flatten(c);
-        }
+          for (auto& c : L.children)
+          {
+            flatten(c);
+          }
         }
       };
       flatten(MainEntry);
@@ -444,9 +455,9 @@ namespace BasicLog
       return std::chrono::system_clock::now();
     }
 
-    static std::chrono::system_clock::duration unix_time_now(void)
+    static auto unix_time_now_ns(void)
     {
-      return now().time_since_epoch();
+      return now().time_since_epoch().count();
     }
 
     class Manager
