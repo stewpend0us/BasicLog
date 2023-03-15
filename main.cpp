@@ -1,5 +1,5 @@
 #include <iostream>
-#include "Log.hpp"
+#include "BasicLog.hpp"
 #include <thread>
 
 using namespace BasicLog;
@@ -115,7 +115,7 @@ int main(void)
 	test.push_back(Log::Entry("c", "data c", &c));
 	test.push_back(Log::Entry("d", "data d", &d));
 	test.push_back(Log::Entry("f", "data f", &f));
-	Log L3("dynamic", "log", Log::CompressionMethod::DIFF, test);
+	Log L3("dynamic", "log", Log::CompressionMethod::DIFF1, test);
 
 	std::cout << "L2 data (manual):\n";
 	std::cout << "size " << (sizeof(a) + sizeof(b) + sizeof(c) + sizeof(d) + sizeof(f)) << '\n';
