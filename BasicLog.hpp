@@ -123,7 +123,7 @@ namespace BasicLog
       // Enum array
       template <is_Enum A, size_t Count>
       Entry(const std::string_view Name, const std::string_view Description, A const (&arr)[Count])
-        : Entry(Name, Description, (typename std::underlying_type<A>::type const* const)&arr[0], Count)
+        : Entry(Name, Description, (typename std::underlying_type<A>::type const* const)& arr[0], Count)
       {
         // this cast is "not allowed" in c++. if you do a static_cast instead of a () cast the compiler barfs.
       }
@@ -227,8 +227,14 @@ namespace BasicLog
         // sort the children
         std::sort(entries.begin(), entries.end(),
           [](const auto& AA, const auto& BB) -> bool {
-            if (AA.data.empty()) return true;
-            if (BB.data.empty()) return false;
+            bool A = AA.data.empty();
+            bool B = BB.data.empty();
+            // sort containers by name length
+            if (A && B) return AA.name.size() < BB.name.size();
+            // containers above data
+            if (A) return true;
+            if (B) return false;
+            // sort based on data location
             return AA.data[0].ptr < BB.data[0].ptr; });
       }
 
@@ -301,7 +307,7 @@ namespace BasicLog
       std::function<void(Entry)> flatten;
       flatten = [&](Entry L) {
 
-//        auto children = L.children;
+        //        auto children = L.children;
         for (auto& c : L.children)
         {
           c.name = L.name + "." + c.name;
@@ -478,7 +484,7 @@ namespace BasicLog
       }
 
     public:
-      Manager(){}
+      Manager() { }
       Manager(std::filesystem::path root, std::convertible_to<const Log*> auto... Logs)
         : logs({ Logs... })
       {

@@ -80,8 +80,8 @@ for i = 1:numel(d)
         end
     else
         results.(datafn) = data_i.(datafn);
+        info.(datafn) = description_i;
         info.(datafn).file = {fn};
-        info.(datafn).description = description_i;
     end
     result_names{end+1} = datafn;
 end
@@ -162,9 +162,11 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
         byte_offset = 0;
         while hi < n
             hi = hi + 1;
+            qualified_name = strsplit(header(hi).name, '.');
             
             if isempty(header(hi).type)
                 % it's a simple container (arrays not allowed)
+                data = setfield(data, qualified_name{1:(end-1)}, {index}, qualified_name{end}, []);
                 continue;
             end
             
@@ -173,7 +175,7 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
                 % it's a fundamental (arrays are contiguous)
                 num_bytes = type_sizes(type_loc)*header(hi).count;
                 rng = (1:num_bytes) + byte_offset;
-                qualified_name = strsplit(header(hi).name, '.');
+                
                 % add to the data struct
                 data = setfield(data, qualified_name{1:(end-1)}, {index}, qualified_name{end}, converter{type_loc}(Bytes(:,rng),header(hi).count));
                 byte_offset = byte_offset + num_bytes;
