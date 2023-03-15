@@ -240,5 +240,32 @@ description = rmfield(description,'ind');
 end
 
 function expanded_Bytes = expand_DIFF1(Bytes, cols, exclude_incomplete_rows)
-error('TODO');
+num_bits = floor(cols/8) + double(mod(cols,8) > 0);
+expanded_Bytes = uint8([]);
+
+
+derp = true;
+while numel(Bytes) >= num_bits
+    prefix = Bytes(1:num_bits);
+    Bytes(1:num_bits) = [];
+    
+    exp_prefix = [];
+    for i = 1:num_bits
+        exp_prefix = [exp_prefix bitget(prefix(i),1:8)];
+    end
+    exp_prefix = logical(exp_prefix(1:cols));
+    count = sum(exp_prefix);
+    if numel(Bytes) < count
+        if exclude_incomplete_rows
+            break; % already done
+        else
+            Bytes = [Bytes; zeros(count - numel(Bytes),1)]; % pad with zeros
+        end
+    end
+    
+    row = zeros(1,cols);
+    row(exp_prefix) = Bytes(1:count);
+    expanded_Bytes = [expanded_Bytes; row];
+    Bytes(1:count) = [];
+end
 end
