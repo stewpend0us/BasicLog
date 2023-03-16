@@ -404,11 +404,11 @@ namespace BasicLog
     std::vector<char> previous_row;
     void record_DIFF1(void)
     {
-      static const size_t num_bytes = previous_row.size();
-      static const size_t num_bits = num_bytes / 8 + (num_bytes % 8 > 0); // number of bytes we need to get at least one bit per byte
-      static std::vector<char> prefix(num_bits, 0);
-      static std::vector<char> delta(num_bytes, 0);
-      static std::vector<char> row(num_bytes, 0);
+      const size_t num_bytes = previous_row.size();
+      const size_t num_bits = num_bytes / 8 + (num_bytes % 8 > 0); // number of bytes we need to get at least one bit per byte
+      std::vector<char> prefix(num_bits, 0);
+      std::vector<char> delta(num_bytes, 0);
+      std::vector<char> row(num_bytes, 0);
 
 
       // copy all the data to be logged into a buffer
@@ -429,7 +429,7 @@ namespace BasicLog
       previous_row = row;
 
       // compute the prefix and data to be logged
-      std::fill(prefix.begin(), prefix.end(), 0); // zero the prefix
+//      std::fill(prefix.begin(), prefix.end(), 0); // zero the prefix
       std::vector<char> bytes_to_log;
       for (size_t i = 0; i < num_bytes; i++)
       {
