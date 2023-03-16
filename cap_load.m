@@ -58,9 +58,11 @@ for i = 1:numel(d)
     switch header.compression
         case 'RAW'
             Bytes = fix_shape(Bytes, header.row_size, exclude_incomplete_rows);
+            ratio = numel(Bytes)/count; % size of the stuff we care about over the size of the file
             [data_i, description_i] = extract(header.data_header, Bytes);
         case 'DIFF1'
             expanded_Bytes = expand_DIFF1(Bytes, header.row_size, exclude_incomplete_rows);
+            ratio = numel(expanded_Bytes)/count; % size of the stuff we care about over the size of the file
             [data_i, description_i] = extract(header.data_header, expanded_Bytes);
         otherwise
             error(['unexpected compression method: ' header.compression]);
@@ -75,6 +77,7 @@ for i = 1:numel(d)
     if any(strcmpi(result_names,datafn))
         results.(datafn) = [results.(datafn) data_i.(datafn)]; % if this works
         info.(datafn).file = [info.(datafn).file fn]; % then we just need to record the file name
+        info.(datafn).compression_ratio = [info.(datafn).compression_ratio ratio];
         if warn_on_multiple
             warning('data already contains an entry for "%s". Appending in the order encountered.', datafn);
         end
@@ -82,6 +85,7 @@ for i = 1:numel(d)
         results.(datafn) = data_i.(datafn);
         info.(datafn) = description_i;
         info.(datafn).file = {fn};
+        info.(datafn).compression_ratio = ratio;
     end
     result_names{end+1} = datafn;
 end
@@ -244,7 +248,8 @@ num_bits = floor(cols/8) + double(mod(cols,8) > 0);
 expanded_Bytes = uint8([]);
 
 
-derp = true;
+previous_row = zeros(1,cols);
+row = previous_row;
 while numel(Bytes) >= num_bits
     prefix = Bytes(1:num_bits);
     Bytes(1:num_bits) = [];
@@ -263,9 +268,12 @@ while numel(Bytes) >= num_bits
         end
     end
     
-    row = zeros(1,cols);
+    row(:) = 0;
     row(exp_prefix) = Bytes(1:count);
-    expanded_Bytes = [expanded_Bytes; row];
     Bytes(1:count) = [];
+    
+    row = row + previous_row;
+    expanded_Bytes = [expanded_Bytes; row];
+    previous_row = row;
 end
 end
