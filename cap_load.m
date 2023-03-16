@@ -21,11 +21,11 @@ if isempty(d)
 end
 
 results = struct;
-info = struct;
+info = [];
 result_names = {};
 
 exclude_incomplete_rows = pop(varargin, 'exclude_incomplete_rows', true);
-warn_on_multiple = pop(varargin, 'warn_on_multiple', true);
+warn_on_multiple = pop(varargin, 'warn_on_multiple', false);
 
 % for each file
 for i = 1:numel(d)
@@ -59,11 +59,11 @@ for i = 1:numel(d)
         case 'RAW'
             Bytes = fix_shape(Bytes, header.row_size, exclude_incomplete_rows);
             ratio = numel(Bytes)/count; % size of the stuff we care about over the size of the file
-            [data_i, description_i] = extract(header.data_header, Bytes);
+            [data_i, info_i] = extract(header.data_header, Bytes);
         case 'DIFF1'
             expanded_Bytes = expand_DIFF1(Bytes, header.row_size, exclude_incomplete_rows);
             ratio = numel(expanded_Bytes)/count; % size of the stuff we care about over the size of the file
-            [data_i, description_i] = extract(header.data_header, expanded_Bytes);
+            [data_i, info_i] = extract(header.data_header, expanded_Bytes);
         otherwise
             error(['unexpected compression method: ' header.compression]);
     end
@@ -76,18 +76,28 @@ for i = 1:numel(d)
     % merge multiple files together
     if any(strcmpi(result_names,datafn))
         results.(datafn) = [results.(datafn) data_i.(datafn)]; % if this works
-        info.(datafn).file = [info.(datafn).file fn]; % then we just need to record the file name
-        info.(datafn).compression_ratio = [info.(datafn).compression_ratio ratio];
+%         info.(datafn).file = [info.(datafn).file fn]; % then we just need to record the file name
+%         info.(datafn).compression_ratio = [info.(datafn).compression_ratio ratio];
+        ind = info_index.(datafn);
+        info(ind).file = [info(ind).file fn];
+        info(ind).compression_ratio = [info(ind).compression_ratio ratio];
         if warn_on_multiple
             warning('data already contains an entry for "%s". Appending in the order encountered.', datafn);
         end
     else
         results.(datafn) = data_i.(datafn);
-        info.(datafn) = description_i;
-        info.(datafn).file = {fn};
-        info.(datafn).compression_ratio = ratio;
+        ind = numel(info) + 1;
+        info(ind).info = info_i;
+        info(ind).file = {fn};
+        info(ind).compression_ratio = ratio;
+        
+%         info.(datafn) = description_i;
+%         info.(datafn).file = {fn};
+%         info.(datafn).compression_ratio = ratio;
+        result_names{end+1} = datafn;
+        info_index.(datafn) = ind;
     end
-    result_names{end+1} = datafn;
+    
 end
 
 end
@@ -111,7 +121,7 @@ end
 
 
 
-function [data, description] = extract(header, Bytes)
+function [data, info] = extract(header, Bytes)
 % given the header specification, extract data from the byte array
 % allowed data types
 type_names = {'uint8',	'int8',	'uint16',	'int16',	'uint32',	'int32',	'uint64',	'int64',	'float32',	'float64',  'bool',	'char'};
@@ -202,6 +212,8 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
                     all_children = [all_children header(hi)];
                 else
                     % hi points to first non-child entry
+                    % so we need to subtract one from it
+                    hi = hi - 1;
                     % aka the next header in the list
                     break; 
                 end
@@ -237,9 +249,9 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
     end
 
 data = extract_data(header,Bytes,struct,1);
-description = extract_description(header);
-[data, description] = order_children(data, description);
-description = rmfield(description,'ind');
+info = extract_description(header);
+[data, info] = order_children(data, info);
+info = rmfield(info,'ind');
 
 end
 
@@ -247,8 +259,9 @@ function expanded_Bytes = expand_DIFF1(Bytes, cols, exclude_incomplete_rows)
 num_bits = floor(cols/8) + double(mod(cols,8) > 0);
 expanded_Bytes = uint8([]);
 
+uint8_max_plus_1 = int16(intmax('uint8')) + 1;
 
-previous_row = zeros(1,cols);
+previous_row = uint8(zeros(1,cols));
 row = previous_row;
 while numel(Bytes) >= num_bits
     prefix = Bytes(1:num_bits);
@@ -272,7 +285,8 @@ while numel(Bytes) >= num_bits
     row(exp_prefix) = Bytes(1:count);
     Bytes(1:count) = [];
     
-    row = row + previous_row;
+    % matlab can't add integers properly (with overflow) so...do this instead
+    row = uint8(mod(int16(row) + int16(previous_row), uint8_max_plus_1));
     expanded_Bytes = [expanded_Bytes; row];
     previous_row = row;
 end
