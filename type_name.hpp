@@ -2,7 +2,7 @@
 #include <cstdint>
 #include <type_traits>
 
-namespace detail
+namespace BasicLog_detail
 {
 //	static_assert(sizeof(long double) == 128 / 8 && "assumed long double size");
 	static_assert(sizeof(double) == 64 / 8 && "assumed double size");
@@ -46,4 +46,4 @@ namespace detail
 }
 
 template <typename T>
-constexpr auto type_name_v = detail::type_name<T>::value;
+constexpr auto type_name_v = BasicLog_detail::type_name<T>::value;
