@@ -29,19 +29,19 @@ warn_on_multiple = pop(varargin, 'warn_on_multiple', false);
 
 % for each file
 for i = 1:numel(d)
-    
+
     % load the entire contents of the file
     fn = fullfile(d(i).folder,d(i).name);
     fid = fopen(fn, 'r');
     assert(fid ~= -1, ['unable to open ' fn]);
     [Bytes, count] = fread(fid,'uint8=>uint8');
     fclose(fid);
-    
+
     if count == 0
         warning('File contains zero content: %s', fn);
         continue;
     end
-    
+
     % extract the header
     fz = find(Bytes==0, 1); % the first zero is the end of the header string
     try
@@ -50,10 +50,10 @@ for i = 1:numel(d)
         warning('failed to load: %s\n', fn);
         continue;
     end
-    
+
     % separate the data from the header
     Bytes = Bytes((fz+1):end);
-    
+
     % put the data in a struct format specified by the header
     switch header.compression
         case 'RAW'
@@ -67,17 +67,17 @@ for i = 1:numel(d)
         otherwise
             error(['unexpected compression method: ' header.compression]);
     end
-    
+
     % do some checks on the format
     datafn = fieldnames(data_i);
     assert(numel(datafn) == 1, 'expecting a single field at the highest level');
     datafn = datafn{1};
-    
+
     % merge multiple files together
     if any(strcmpi(result_names,datafn))
         results.(datafn) = [results.(datafn) data_i.(datafn)]; % if this works
-%         info.(datafn).file = [info.(datafn).file fn]; % then we just need to record the file name
-%         info.(datafn).compression_ratio = [info.(datafn).compression_ratio ratio];
+        %         info.(datafn).file = [info.(datafn).file fn]; % then we just need to record the file name
+        %         info.(datafn).compression_ratio = [info.(datafn).compression_ratio ratio];
         ind = info_index.(datafn);
         info(ind).file = [info(ind).file fn];
         info(ind).compression_ratio = [info(ind).compression_ratio ratio];
@@ -90,14 +90,14 @@ for i = 1:numel(d)
         info(ind).info = info_i;
         info(ind).file = {fn};
         info(ind).compression_ratio = ratio;
-        
-%         info.(datafn) = description_i;
-%         info.(datafn).file = {fn};
-%         info.(datafn).compression_ratio = ratio;
+
+        %         info.(datafn) = description_i;
+        %         info.(datafn).file = {fn};
+        %         info.(datafn).compression_ratio = ratio;
         result_names{end+1} = datafn;
         info_index.(datafn) = ind;
     end
-    
+
 end
 
 end
@@ -165,42 +165,42 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
                 end
             end
         end
-        
+
         info = find_children_of('');
     end
 
     function data = extract_data(header, Bytes, data, index)
         n = numel(header);
-        
+
         hi = 0;
         byte_offset = 0;
         while hi < n
             hi = hi + 1;
             qualified_name = strsplit(header(hi).name, '.');
-            
+
             if isempty(header(hi).type)
                 % it's a simple container (arrays not allowed)
                 data = setfield(data, qualified_name{1:(end-1)}, {index}, qualified_name{end}, []);
                 continue;
             end
-            
+
             type_loc = strcmpi(type_names, header(hi).type);
             if any(type_loc)
                 % it's a fundamental (arrays are contiguous)
                 num_bytes = type_sizes(type_loc)*header(hi).count;
                 rng = (1:num_bytes) + byte_offset;
-                
+
                 % add to the data struct
                 data = setfield(data, qualified_name{1:(end-1)}, {index}, qualified_name{end}, converter{type_loc}(Bytes(:,rng),header(hi).count));
                 byte_offset = byte_offset + num_bytes;
                 continue;
             end
-            
+
             % it's a structure (we can have messy arrays of these...)
             size = str2double(header(hi).type);
             assert(~isnan(size),'unexpected type: "%s"', header(hi).type);
-%             header(hi).type = size;
-            
+            %             header(hi).type = size;
+
             % the following headers are 'guaranteed' to be children of
             % this header. package them all up.
             pi = hi;
@@ -215,10 +215,10 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
                     % so we need to subtract one from it
                     hi = hi - 1;
                     % aka the next header in the list
-                    break; 
+                    break;
                 end
             end
-            
+
             % for each element in the structure array
             % recurse through the list of children and expand each one out
             for i = 1:header(pi).count
@@ -227,8 +227,8 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
                 byte_offset = byte_offset + size;
             end
         end
-        
-        
+
+
     end
 
     function [data, description] = order_children(data, description)
@@ -257,37 +257,49 @@ end
 
 function expanded_Bytes = expand_DIFF1(Bytes, cols, exclude_incomplete_rows)
 num_bits = floor(cols/8) + double(mod(cols,8) > 0);
-expanded_Bytes = uint8([]);
 
 uint8_max_plus_1 = int16(intmax('uint8')) + 1;
 
-previous_row = uint8(zeros(1,cols));
+previous_row = zeros(1,cols,'uint8');
 row = previous_row;
-while numel(Bytes) >= num_bits
-    prefix = Bytes(1:num_bits);
-    Bytes(1:num_bits) = [];
-    
+pos = 0;
+nBytes = numel(Bytes);
+expanded_Bytes = zeros(floor(nBytes/cols)*2,cols,'uint8'); % assume a compression ratio of 2
+eB_count = 0;
+while (nBytes-pos) >= num_bits
+    prefix = Bytes((1:num_bits) + pos);
+    pos = pos + num_bits;
+    % Bytes(1:num_bits) = [];
+
     exp_prefix = [];
-    for i = 1:num_bits
-        exp_prefix = [exp_prefix bitget(prefix(i),1:8)];
+    for i = 1:8
+        exp_prefix = [exp_prefix bitget(prefix,i)];
     end
-    exp_prefix = logical(exp_prefix(1:cols));
+    exp_prefix = exp_prefix';
+    exp_prefix = logical(exp_prefix(:))';
     count = sum(exp_prefix);
-    if numel(Bytes) < count
+    if (nBytes-pos) < count
         if exclude_incomplete_rows
             break; % already done
         else
-            Bytes = [Bytes; zeros(count - numel(Bytes),1)]; % pad with zeros
+            Bytes = [Bytes; zeros(count - (nBytes-pos),1)]; % pad with zeros
         end
     end
-    
+
     row(:) = 0;
-    row(exp_prefix) = Bytes(1:count);
-    Bytes(1:count) = [];
-    
+    row(exp_prefix) = Bytes((1:count) + pos);
+    pos = pos + count;
+    % Bytes(1:count) = [];
+
     % matlab can't add integers properly (with overflow) so...do this instead
     row = uint8(mod(int16(row) + int16(previous_row), uint8_max_plus_1));
-    expanded_Bytes = [expanded_Bytes; row];
+    eB_count = eB_count + 1;
+    expanded_Bytes(eB_count,:) = row; % this will grow as needed if expanded_Bytes is too small. The performance is acceptable too
+
+    % expanded_Bytes = [expanded_Bytes; row];
     previous_row = row;
+end
+if eB_count < size(expanded_Bytes,1)
+    expanded_Bytes = expanded_Bytes(1:eB_count,:);
 end
 end
