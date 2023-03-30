@@ -9,6 +9,7 @@
 #include <fstream>
 #include <filesystem>
 #include <chrono>
+#include <concepts>
 
 #include <iostream>
 #include <iomanip>
@@ -17,16 +18,23 @@
 
 namespace BasicLog
 {
-  //	constexpr std::string_view Version = "0";
-
   template <class T>
-  concept is_Fundamental = std::is_fundamental_v<T>;
+  concept is_Fundamental = std::integral<T> || std::floating_point<T>;
 
   template <class T>
   concept is_Enum = std::is_enum_v<T>;
 
   template <class T>
   concept is_Class = std::is_class_v<T>;
+
+  template <class T>
+  concept has_data_size = requires (T t)
+  {
+    // we'll call these methods and pass their outputs to functions whos inputs are already constrained
+    // so we don't need to worry too much about what type they return as long as they exist?
+    { t.data() };
+    { t.size() };
+  };
 
   class Log
   {
@@ -106,6 +114,11 @@ namespace BasicLog
         check_name();
         data.push_back(DataChunk{ (char*)Ptr, sizeof(A) * Count });
       }
+
+      template <has_data_size T>
+      Entry(const std::string_view Name, const std::string_view Description, T const& Obj)
+        : Entry(Name, Description, Obj.data(), Obj.size())
+      { }
 
       // allow Enum types
       template <is_Enum A>
@@ -436,8 +449,8 @@ namespace BasicLog
       {
         if (delta[i] == 0)
           continue;
-        size_t h_ind = i/8;
-        int b_ind = i%8;
+        size_t h_ind = i / 8;
+        int b_ind = i % 8;
         prefix[h_ind] |= 1U << b_ind; // set the bit
         bytes_to_log.push_back(delta[i]); // insert the data
       }
