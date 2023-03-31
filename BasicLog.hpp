@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <chrono>
 #include <concepts>
+#include <mutex>
 
 #include <iostream>
 #include <iomanip>
@@ -522,8 +523,9 @@ namespace BasicLog
       bool logging = false;
       std::chrono::system_clock::time_point start_time;
       std::chrono::system_clock::duration max_log_duration = std::chrono::hours(1);
+      std::mutex lock;
 
-      void check_child_names(void) const
+      void pcheck_child_names(void) const
       {
         // check that the child names are unique
         std::unordered_set<std::string_view> unique_names;
@@ -532,27 +534,7 @@ namespace BasicLog
             throw std::runtime_error(std::string("Log::Manager instance already contains a log named \"").append(L->name()).append("\"")); });
       }
 
-    public:
-      Manager() { }
-      Manager(std::filesystem::path root, std::convertible_to<const Log*> auto... Logs)
-        : logs({ Logs... })
-      {
-        check_child_names();
-        set_root_directory(root);
-      }
-
-      void set_root_directory(const std::filesystem::path path)
-      {
-        std::filesystem::create_directories(path); // may fail
-        root_directory = path;
-      }
-
-      void set_max_log_duration(const std::chrono::system_clock::duration& time)
-      {
-        max_log_duration = time;
-      }
-
-      std::filesystem::path start(void)
+      std::filesystem::path pstart(void)
       {
         std::filesystem::path dir = root_directory / unix_time_formatted();
         std::filesystem::create_directories(dir);
@@ -562,10 +544,68 @@ namespace BasicLog
         return dir;
       }
 
-      void stop(void)
+      void pstop(void)
       {
         std::for_each(logs.begin(), logs.end(), [](Log* L) { L->stop(); });
         logging = false;
+      }
+
+    public:
+      Manager() { }
+      Manager(std::filesystem::path root)
+      {
+        set_root_directory(root);
+      }
+      Manager(std::filesystem::path root, std::convertible_to<const Log*> auto... Logs)
+        : logs({ Logs... })
+      {
+        pcheck_child_names();
+        set_root_directory(root);
+      }
+
+      void push_back(Log* L)
+      {
+        lock.lock();
+        bool was_logging = logging;
+        if (was_logging) pstop();
+        logs.push_back(L);
+        pcheck_child_names();
+        if (was_logging) pstart();
+        lock.unlock();
+      }
+
+      void set_root_directory(const std::filesystem::path path)
+      {
+        lock.lock();
+        bool was_logging = logging;
+        if (was_logging) pstop();
+        std::filesystem::create_directories(path); // may fail
+        root_directory = path;
+        if (was_logging) pstart();
+        lock.unlock();
+      }
+
+      void set_max_log_duration(const std::chrono::system_clock::duration& time)
+      {
+        lock.lock();
+        max_log_duration = time;
+        lock.unlock();
+      }
+
+      std::filesystem::path start(void)
+      {
+        lock.lock();
+        auto dir = pstart();
+        lock.unlock();
+        return dir;
+      }
+
+      void stop(void)
+      {
+        lock.lock();
+        std::for_each(logs.begin(), logs.end(), [](Log* L) { L->stop(); });
+        logging = false;
+        lock.unlock();
       }
 
       // NOTE: not going to expose a Manager level "record" method each log
@@ -574,11 +614,13 @@ namespace BasicLog
 
       void restart_if_needed(void)
       {
+        lock.lock();
         if (logging)
         {
           if ((now() - start_time) >= max_log_duration)
-            start();
+            pstart();
         }
+        lock.unlock();
       }
 
       bool is_logging(void)
