@@ -257,27 +257,27 @@ end
 
 function expanded_Bytes = expand_DIFF1(Bytes, cols, exclude_incomplete_rows)
 num_bits = floor(cols/8) + double(mod(cols,8) > 0);
+one_to_num_bits = 1:num_bits;
 
 uint8_max_plus_1 = int16(intmax('uint8')) + 1;
 
-previous_row = zeros(1,cols,'uint8');
-row = previous_row;
-pos = 0;
-nBytes = numel(Bytes);
-expanded_Bytes = zeros(floor(nBytes/cols)*2,cols,'uint8'); % assume a compression ratio of 2
-eB_count = 0;
-while (nBytes-pos) >= num_bits
-    prefix = Bytes((1:num_bits) + pos);
-    pos = pos + num_bits;
-    % Bytes(1:num_bits) = [];
+previous_row = zeros(cols,1,'uint8');
 
-    exp_prefix = [];
-    for i = 1:8
-        exp_prefix = [exp_prefix bitget(prefix,i)];
-    end
-    exp_prefix = exp_prefix';
-    exp_prefix = logical(exp_prefix(:))';
-    count = sum(exp_prefix);
+pos = 0;
+eB_count = 0;
+nBytes = numel(Bytes);
+% the following is transposed for optimzation reasons (WAY faster)
+expanded_Bytes = zeros(cols,floor(nBytes/cols)*3,'uint8'); % optimistically assume a compression ratio of 3
+
+while (nBytes-pos) >= num_bits
+    prefix = Bytes(one_to_num_bits + pos);
+    pos = pos + num_bits;
+
+    exp_prefix = [bitget(prefix,1) bitget(prefix,2) bitget(prefix,3) bitget(prefix,4) bitget(prefix,5) bitget(prefix,6) bitget(prefix,7) bitget(prefix,8)];
+
+    non_zeros = logical(exp_prefix)';
+    non_zeros = non_zeros(:);
+    count = sum(non_zeros);
     if (nBytes-pos) < count
         if exclude_incomplete_rows
             break; % already done
@@ -286,20 +286,21 @@ while (nBytes-pos) >= num_bits
         end
     end
 
-    row(:) = 0;
-    row(exp_prefix) = Bytes((1:count) + pos);
+    row = zeros(cols,1,'uint8'); % fastest way i could find to zero the row
+    data = Bytes((1:count) + pos); % this is slow. can't figure out how to make it faster
     pos = pos + count;
-    % Bytes(1:count) = [];
+    row(non_zeros) = data; % this is slow. can't figure out how to make it faster
 
     % matlab can't add integers properly (with overflow) so...do this instead
     row = uint8(mod(int16(row) + int16(previous_row), uint8_max_plus_1));
     eB_count = eB_count + 1;
-    expanded_Bytes(eB_count,:) = row; % this will grow as needed if expanded_Bytes is too small. The performance is acceptable too
+    expanded_Bytes(:,eB_count) = row; % this will grow as needed if expanded_Bytes is too small. The performance is acceptable too IF you're operating on columns
 
     % expanded_Bytes = [expanded_Bytes; row];
     previous_row = row;
 end
-if eB_count < size(expanded_Bytes,1)
-    expanded_Bytes = expanded_Bytes(1:eB_count,:);
+if eB_count < size(expanded_Bytes,2)
+    expanded_Bytes = expanded_Bytes(:,1:eB_count);
 end
+expanded_Bytes = expanded_Bytes';
 end
