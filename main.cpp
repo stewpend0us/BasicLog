@@ -1,7 +1,7 @@
 #include <iostream>
-#include "BasicLog.hpp"
 #include <thread>
 
+#include "BasicLog.hpp"
 using namespace BasicLog;
 
 int main(void)

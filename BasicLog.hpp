@@ -49,31 +49,7 @@ namespace BasicLog
       size_t count;
 
       // look for contiguous chunks of memory
-      static std::vector<DataChunk> condense(std::vector<DataChunk> const& chunk)
-      {
-        std::vector<DataChunk> result;
-        if (!chunk.empty())
-        {
-          DataChunk L0{ chunk[0] }; // may modify this one so make a copy
-          size_t i = 1;
-          while (i < chunk.size())
-          {
-            DataChunk const* L1 = &chunk[i];
-            if (L0.ptr + L0.count == L1->ptr)
-            {
-              L0.count += L1->count;
-            }
-            else
-            {
-              result.push_back(L0);
-              L0 = *L1;
-            }
-            i++;
-          }
-          result.push_back(L0);
-        }
-        return result;
-      }
+      static std::vector<DataChunk> condense(std::vector<DataChunk> const& chunk);
     };
 
   public:
@@ -87,25 +63,17 @@ namespace BasicLog
     struct Entry
     {
 
-      Entry() { }
+      Entry();
 
       // simple container
-      Entry(const std::string_view Name, const std::string_view Description, std::vector<Entry> child_entries)
-        : name(Name), description(Description), type(""), type_size(0), count(1), children(child_entries), is_contiguous(false)
-      {
-        check_name();
-        check_child_names();
-        for (size_t ind = 0; ind < child_entries.size(); ind++)
-        {
-          children[ind].parent_index = ind;
-          type_size += children[ind].type_size;
-        }
-      }
+      Entry(const std::string_view Name, const std::string_view Description, std::vector<Entry> child_entries);
 
-      // simple container
-      Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<Entry> auto const... child_entries)
-        : Entry(Name, Description, std::vector<Entry>({ child_entries... }))
-      { }
+
+  // simple container
+  Entry(const std::string_view Name, const std::string_view Description, std::convertible_to<Entry> auto const... child_entries)
+      : Entry(Name, Description, std::vector<Entry>({child_entries...}))
+  {
+  }
 
       // fundamental or array
       template <is_Fundamental A>
@@ -213,79 +181,17 @@ namespace BasicLog
         : Entry(Name, Description, Ptr, 1, child_entries...)
       { }
 
-      std::string header() const
-      {
-        static constexpr std::string_view q = "\"";
-        static constexpr std::string_view c = ",";
-        static constexpr std::string_view qc = "\",";
-        static constexpr std::string_view l = "{";
-        static constexpr std::string_view r = "}";
-        static constexpr std::string_view name = "\"name\":";
-        static constexpr std::string_view desc = "\"desc\":";
-        static constexpr std::string_view type = "\"type\":";
-        static constexpr std::string_view ind = "\"ind\":";
-        static constexpr std::string_view count = "\"count\":";
-        //{"name":"{name}","desc":"{description}","type":"{type}","count":{count},"parent":"{parent_name}","ind":{parent_index}}
-        auto h = std::string(l).append(name).append(q).append(this->name).append(qc).append(desc).append(q).append(this->description).append(qc).append(type).append(q).append(this->type).append(qc).append(count).append(std::to_string(this->count)).append(c).append(ind).append(std::to_string(this->parent_index)).append(r);
-        if (is_contiguous)
-        {
-          for (auto& h2 : children)
-            h.append(",\n").append(h2.header());
-        }
-        return h;
-      }
+      std::string header() const;
 
-      static void sort_entries(std::vector<Entry>& entries)
-      {
-        // sort the children
-        std::sort(entries.begin(), entries.end(),
-          [](const auto& AA, const auto& BB) -> bool {
-            bool A = AA.data.empty();
-            bool B = BB.data.empty();
-            // sort containers by name length
-            if (A && B) return AA.name.size() < BB.name.size();
-            // containers above data
-            if (A) return true;
-            if (B) return false;
-            // sort based on data location
-            return AA.data[0].ptr < BB.data[0].ptr; });
-      }
+      static void sort_entries(std::vector<Entry>& entries);
 
-      void sort_children(void)
-      {
-        sort_entries(children);
-      }
+      void sort_children(void);
 
-      std::runtime_error error(const std::string_view msg) const
-      {
-        return std::runtime_error(std::string("\"").append(name).append("\", \"").append(description).append("\": ").append(msg));
-      }
+      std::runtime_error error(const std::string_view msg) const;
 
-      void check_name(void) const
-      {
-        static const std::string ok1 = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        static const std::string ok2 = "_0123456789";
-        if (name.size() == 0)
-          throw error("name must be at least one character long");
-        if (ok1.find(name[0]) == std::string::npos)
-          throw error("name must start with a letter");
-        for (size_t i = 1; i < name.size(); i++)
-        {
-          if (ok2.find(name[i]) == std::string::npos && ok1.find(name[i]) == std::string::npos)
-            throw error(std::string("name must not contain '").append(name.substr(i, 1)).append("' only letters, numbers, and _"));
-        }
-      }
+      void check_name(void) const;
 
-      void check_child_names(void) const
-      {
-        // check that the child names are unique
-        std::unordered_set<std::string_view> unique_child_names;
-        for (size_t ind = 0; ind < children.size(); ind++)
-        {
-          if (!unique_child_names.insert(children[ind].name).second)
-            throw error("already contains a child named \"" + children[ind].name + "\"");
-        }
-      }
+      void check_child_names(void) const;
 
       // for the header
       std::string name;
@@ -310,156 +216,31 @@ namespace BasicLog
       CompressionMethodCount
     };
 
-    Log() { };
+    Log();
 
-    Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::vector<Entry> child_entries)
-      : MainEntry(Name, Description, child_entries), selected_recorder(CompressionMethodFunction[Compression]), current_recorder(&Log::record_NULL)
-    {
-      MainEntry.parent_index = 0;
-      std::vector<Entry> AllEntries;
-      std::function<void(Entry)> flatten;
-      flatten = [&](Entry L) {
+    Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::vector<Entry> child_entries);
 
-        //        auto children = L.children;
-        for (auto& c : L.children)
-        {
-          c.name = L.name + "." + c.name;
-        }
-        //L.children.clear();
-        AllEntries.push_back(L);
-        if (!L.is_contiguous)
-        {
-          for (auto& c : L.children)
-          {
-            flatten(c);
-          }
-        }
-      };
-      flatten(MainEntry);
-      Entry::sort_entries(AllEntries);
-      std::vector<DataChunk> AllChunks;
-      header.append("{\n");
-      header.append("\"compression\":\"").append(CompressionMethodName[Compression]).append("\",\n");
-      header.append("\"data_header\":[\n");
-      bool first = true;
-      for (auto& c : AllEntries)
-      {
-        AllChunks.insert(AllChunks.end(), c.data.begin(), c.data.end());
-        if (first)
-          first = false;
-        else
-          header.append(",\n");
-        header.append(c.header());
-      }
-      data = DataChunk::condense(AllChunks);
-      size_t total_size = std::accumulate(data.begin(), data.end(), 0, [](size_t sum, const DataChunk& E) { return sum + E.count; });
+  Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::convertible_to<const Entry> auto const... child_entries)
+      : Log(Name, Description, Compression, {child_entries...})
+  {
+  }
 
-      previous_row = std::vector<char>(total_size, 0);
 
-      header.append("\n],\n");
-      header.append("\"row_size\":").append(std::to_string(total_size));
-      header.append("\n}");
+    std::string_view name() const;
 
-      // display stuff (for now)
-      std::cout << header << '\n';
-      for (auto& c : data)
-      {
-        std::cout << (void*)c.ptr << "     " << c.count << "     " << (void*)(c.ptr + c.count) << '\n';
-      }
-    }
+    void start(std::filesystem::path directory);
 
-    Log(const std::string_view Name, const std::string_view Description, CompressionMethod Compression, std::convertible_to<const Entry> auto const... child_entries)
-      : Log(Name, Description, Compression, { child_entries... })
-    { }
+    void stop(void);
 
-    std::string_view name() const
-    {
-      return MainEntry.name;
-    }
-
-    void start(std::filesystem::path directory)
-    {
-      if (directory.empty())
-        throw MainEntry.error("cannot begin logging to an empty directory");
-      // create the new file
-      auto file_path = directory / (MainEntry.name + ".cap");
-      log_file.open(file_path, std::ios_base::binary | std::ios_base::trunc);
-      if (!log_file)
-        throw MainEntry.error(std::string("failed to create log file: ").append(file_path));
-
-      log_file << header << '\0';						// add the header followed by 0
-      current_recorder = selected_recorder; // update the recorder function
-      // init recorder states
-      std::fill(previous_row.begin(), previous_row.end(), 0);
-    }
-
-    void stop(void)
-    {
-      current_recorder = &Log::record_NULL;
-      log_file.flush();
-      log_file.close();
-    }
-
-    void record(void)
-    {
-      (this->*current_recorder)();
-    }
+    void record(void);
 
     // private:
-    void record_NULL(void) { }
+    void record_NULL(void);
 
-    void record_RAW(void)
-    {
-      for (auto& e : data)
-      {
-        log_file.write(e.ptr, e.count);
-      }
-    }
+    void record_RAW(void);
 
     std::vector<char> previous_row;
-    void record_DIFF1(void)
-    {
-      const size_t num_bytes = previous_row.size();
-      const size_t num_bits = num_bytes / 8 + (num_bytes % 8 > 0); // number of bytes we need to get at least one bit per byte
-      std::vector<char> prefix(num_bits, 0);
-      std::vector<char> delta(num_bytes, 0);
-      std::vector<char> row(num_bytes, 0);
-
-
-      // copy all the data to be logged into a buffer
-      size_t pos = 0;
-      for (auto& e : data)
-      {
-        for (size_t i = 0; i < e.count; i++)
-        {
-          row[pos++] = e.ptr[i];
-        }
-      }
-
-      // compute the delta
-      for (size_t i = 0; i < num_bytes; i++)
-        delta[i] = row[i] - previous_row[i];
-
-      // save the previous row
-      previous_row = row;
-
-      // compute the prefix and data to be logged
-//      std::fill(prefix.begin(), prefix.end(), 0); // zero the prefix
-      std::vector<char> bytes_to_log;
-      for (size_t i = 0; i < num_bytes; i++)
-      {
-        if (delta[i] == 0)
-          continue;
-        size_t h_ind = i / 8;
-        int b_ind = i % 8;
-        prefix[h_ind] |= 1U << b_ind; // set the bit
-        bytes_to_log.push_back(delta[i]); // insert the data
-      }
-
-      // finally write the prefix and data
-      log_file.write(prefix.data(), prefix.size());
-      log_file.write(bytes_to_log.data(), bytes_to_log.size());
-    }
+    void record_DIFF1(void);
 
     // list of compression method names (to be included in the log header)
     static constexpr std::string_view CompressionMethodName[CompressionMethodCount] = { "RAW", "DIFF1" };
@@ -496,25 +277,11 @@ namespace BasicLog
       };
     }
 
-    static std::string unix_time_formatted(void)
-    {
-      time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now()); // system clock is 'Unix time' in c++20
-      struct tm tm;
-      localtime_r(&now, &tm);
-      std::stringstream ss;
-      ss << std::put_time(&tm, "%Y%m%d_%H%M%S%z");
-      return ss.str();
-    }
+    static std::string unix_time_formatted(void);
 
-    static std::chrono::system_clock::time_point now(void)
-    {
-      return std::chrono::system_clock::now();
-    }
+    static std::chrono::system_clock::time_point now(void);
 
-    static auto unix_time_now_ns(void)
-    {
-      return now().time_since_epoch().count();
-    }
+    static auto unix_time_now_ns(void);
 
     class Manager
     {
@@ -525,108 +292,40 @@ namespace BasicLog
       std::chrono::system_clock::duration max_log_duration = std::chrono::hours(1);
       std::mutex lock;
 
-      void pcheck_child_names(void) const
-      {
-        // check that the child names are unique
-        std::unordered_set<std::string_view> unique_names;
-        std::for_each(logs.begin(), logs.end(), [&](const Log* L) {
-          if (!unique_names.insert(L->name()).second)
-            throw std::runtime_error(std::string("Log::Manager instance already contains a log named \"").append(L->name()).append("\"")); });
-      }
+      void pcheck_child_names(void) const;
 
-      std::filesystem::path pstart(void)
-      {
-        std::filesystem::path dir = root_directory / unix_time_formatted();
-        std::filesystem::create_directories(dir);
-        std::for_each(logs.begin(), logs.end(), [&](Log* L) { L->start(dir); });
-        start_time = Log::now();
-        logging = true;
-        return dir;
-      }
+      std::filesystem::path pstart(void);
 
-      void pstop(void)
-      {
-        std::for_each(logs.begin(), logs.end(), [](Log* L) { L->stop(); });
-        logging = false;
-      }
+      void pstop(void);
 
     public:
-      Manager() { }
-      Manager(std::filesystem::path root)
-      {
-        set_root_directory(root);
-      }
-      Manager(std::filesystem::path root, std::convertible_to<const Log*> auto... Logs)
-        : logs({ Logs... })
-      {
-        pcheck_child_names();
-        set_root_directory(root);
-      }
+      Manager();
+      Manager(std::filesystem::path root);
+  Manager(std::filesystem::path root, std::convertible_to<const Log *> auto... Logs)
+      : logs({Logs...})
+  {
+    pcheck_child_names();
+    set_root_directory(root);
+  }
 
-      void push_back(Log* L)
-      {
-        lock.lock();
-        bool was_logging = logging;
-        if (was_logging) pstop();
-        logs.push_back(L);
-        pcheck_child_names();
-        if (was_logging) pstart();
-        lock.unlock();
-      }
 
-      void set_root_directory(const std::filesystem::path path)
-      {
-        lock.lock();
-        bool was_logging = logging;
-        if (was_logging) pstop();
-        std::filesystem::create_directories(path); // may fail
-        root_directory = path;
-        if (was_logging) pstart();
-        lock.unlock();
-      }
+      void push_back(Log* L);
 
-      void set_max_log_duration(const std::chrono::system_clock::duration& time)
-      {
-        lock.lock();
-        max_log_duration = time;
-        lock.unlock();
-      }
+      void set_root_directory(const std::filesystem::path path);
 
-      std::filesystem::path start(void)
-      {
-        lock.lock();
-        auto dir = pstart();
-        lock.unlock();
-        return dir;
-      }
+      void set_max_log_duration(const std::chrono::system_clock::duration& time);
 
-      void stop(void)
-      {
-        lock.lock();
-        std::for_each(logs.begin(), logs.end(), [](Log* L) { L->stop(); });
-        logging = false;
-        lock.unlock();
-      }
+      std::filesystem::path start(void);
+
+      void stop(void);
 
       // NOTE: not going to expose a Manager level "record" method each log
       // should be recorded at an appropriate rate based on the application
 
 
-      void restart_if_needed(void)
-      {
-        lock.lock();
-        if (logging)
-        {
-          if ((now() - start_time) >= max_log_duration)
-            pstart();
-        }
-        lock.unlock();
-      }
+      void restart_if_needed(void);
 
-      bool is_logging(void)
-      {
-        return logging;
-      }
+      bool is_logging(void);
     };
   };
 }
