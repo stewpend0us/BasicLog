@@ -1,4 +1,4 @@
-function [results, info] = cap_load(cap_files, varargin)
+function [results, info, stats] = cap_load(cap_files, varargin)
 % cap_files is a path to a cap file or the output of "dir" where each entry
 % is a cap file
 % optional inputs: exclude_incomplete_rows default true
@@ -21,7 +21,14 @@ if isempty(d)
 end
 
 results = struct;
-info = [];
+info = struct;
+info.name = '';
+info.desc = 'top level';
+info.type = '';
+info.count = 1;
+info.child = [];
+
+stats = [];
 result_names = {};
 
 exclude_incomplete_rows = pop(varargin, 'exclude_incomplete_rows', true);
@@ -34,7 +41,7 @@ for i = 1:numel(d)
     fn = fullfile(d(i).folder,d(i).name);
     fid = fopen(fn, 'r');
     assert(fid ~= -1, ['unable to open ' fn]);
-    [Bytes, count] = fread(fid,'uint8=>uint8');
+    [raw_Bytes, count] = fread(fid,'uint8=>uint8');
     fclose(fid);
 
     if count == 0
@@ -43,30 +50,29 @@ for i = 1:numel(d)
     end
 
     % extract the header
-    fz = find(Bytes==0, 1); % the first zero is the end of the header string
+    fz = find(raw_Bytes==0, 1); % the first zero is the end of the header string
     try
-        header = jsondecode(char(Bytes(1:(fz-1)))');
+        header = jsondecode(char(raw_Bytes(1:(fz-1)))');
     catch
         warning('failed to load: %s\n', fn);
         continue;
     end
 
     % separate the data from the header
-    Bytes = Bytes((fz+1):end);
+    raw_Bytes = raw_Bytes((fz+1):end);
 
     % put the data in a struct format specified by the header
     switch header.compression
         case 'RAW'
-            Bytes = fix_shape(Bytes, header.row_size, exclude_incomplete_rows);
-            ratio = numel(Bytes)/count; % size of the stuff we care about over the size of the file
-            [data_i, info_i] = extract(header.data_header, Bytes);
+            Bytes = fix_shape(raw_Bytes, header.row_size, exclude_incomplete_rows);
         case 'DIFF1'
-            expanded_Bytes = expand_DIFF1(Bytes, header.row_size, exclude_incomplete_rows);
-            ratio = numel(expanded_Bytes)/count; % size of the stuff we care about over the size of the file
-            [data_i, info_i] = extract(header.data_header, expanded_Bytes);
+            Bytes = expand_DIFF1(raw_Bytes, header.row_size, exclude_incomplete_rows);
         otherwise
             error(['unexpected compression method: ' header.compression]);
     end
+
+    ratio = numel(Bytes)/count; % size of the stuff we care about over the size of the file
+    [data_i, info_i] = extract(header.data_header, Bytes);
 
     % do some checks on the format
     datafn = fieldnames(data_i);
@@ -79,27 +85,24 @@ for i = 1:numel(d)
         %         info.(datafn).file = [info.(datafn).file fn]; % then we just need to record the file name
         %         info.(datafn).compression_ratio = [info.(datafn).compression_ratio ratio];
         ind = info_index.(datafn);
-        info(ind).file = [info(ind).file fn];
-        info(ind).compression_ratio = [info(ind).compression_ratio ratio];
+        stats(ind).file = [stats(ind).file fn];
+        stats(ind).compression_ratio = [stats(ind).compression_ratio ratio];
         if warn_on_multiple
             warning('data already contains an entry for "%s". Appending in the order encountered.', datafn);
         end
     else
         results.(datafn) = data_i.(datafn);
-        ind = numel(info) + 1;
-        info(ind).info = info_i;
-        info(ind).file = {fn};
-        info(ind).compression_ratio = ratio;
+        ind = numel(stats) + 1;
+        info.child = [info.child info_i];
 
-        %         info.(datafn) = description_i;
-        %         info.(datafn).file = {fn};
-        %         info.(datafn).compression_ratio = ratio;
+        stats(ind).file = {fn};
+        stats(ind).compression_ratio = ratio;
         result_names{end+1} = datafn;
         info_index.(datafn) = ind;
     end
 
 end
-
+info.lookup = info_lookup(info);
 end
 
 function Bytes = fix_shape(Bytes,cols,exclude_incomplete_rows)
@@ -119,7 +122,23 @@ end
 Bytes = reshape(Bytes, cols, count/cols)';
 end
 
+function find_fun = info_lookup(info)
+    function result = lookup(name)
+        result = info;
+        part = strsplit(name,'.');
+        for i = 1:numel(part)
+            
+            assert(numel(result)==1, ['"' strjoin(part(1:i-1),'.') '" matches multiple: "' strjoin({result.name},'", "') '"'])
+            assert(~isempty(result.child), ['"' strjoin(part(1:i-1),'.') '" has no children']);
+            loc = startsWith({result.child.name},strjoin([result.name part(i)],'.'));
+            result_tmp = result.child(loc);
+            assert(~isempty(result_tmp), ['"' result.name '" has children but none named "' part{i} '". Try:' newline '"' strjoin({result.child.name},'"\n"') '"']);
+            result = result_tmp;
+        end
+    end
 
+    find_fun = @lookup;
+end
 
 function [data, info] = extract(header, Bytes)
 % given the header specification, extract data from the byte array
@@ -252,6 +271,7 @@ data = extract_data(header,Bytes,struct,1);
 info = extract_description(header);
 [data, info] = order_children(data, info);
 info = rmfield(info,'ind');
+info.lookup = info_lookup(info);
 
 end
 
@@ -303,4 +323,22 @@ if eB_count < size(expanded_Bytes,2)
     expanded_Bytes = expanded_Bytes(:,1:eB_count);
 end
 expanded_Bytes = expanded_Bytes';
+end
+
+function [value, args] = pop(args, name, default)
+% pop a name, value pair out of args if it exists otherwise return default
+
+value = default;
+if isempty(args)
+    return;
+end
+loc = find(strcmp(args,name),1);
+if isempty(loc)
+    return;
+end
+value = args{loc+1};
+
+if nargout > 1
+    args([0 1] + loc) = []; % actually pop them
+end
 end
