@@ -170,13 +170,14 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
                 parent_qualified_name = strsplit(parent_name, '.');
             end
             for hi = 1:numel(header)
-                if startsWith(header(hi).name, parent_name)
+                if isChildOf(header(hi).name, parent_name)
                     qualified_name = strsplit(header(hi).name, '.');
                     if numel(qualified_name) - numel(parent_qualified_name) == 1
                         children = [children header(hi)];
                     end
                 end
             end
+
             [children.child] = deal([]);
             for hi = 1:numel(children)
                 if ~any(strcmpi(type_names, children(hi).type))
@@ -227,7 +228,7 @@ converter{end+1} = @(bytes, count) char(converter{2}(bytes,count));
             all_children = [];
             while hi < n
                 hi = hi + 1;
-                if startsWith(header(hi).name, parent_name)
+                if isChildOf(header(hi).name,parent_name)
                     all_children = [all_children header(hi)];
                 else
                     % hi points to first non-child entry
@@ -340,5 +341,13 @@ value = args{loc+1};
 
 if nargout > 1
     args([0 1] + loc) = []; % actually pop them
+end
+end
+
+function tf = isChildOf(child,parent)
+if isempty(parent)
+    tf = true; % everything is a child of the first node
+else
+    tf = startsWith(child, [parent '.']);
 end
 end
